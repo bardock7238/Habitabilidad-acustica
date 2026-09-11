@@ -1,0 +1,15 @@
+# Compilación
+out/
+*.class
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Sistema
+Thumbs.db
+.DS_Store
