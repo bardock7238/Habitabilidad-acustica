@@ -1,0 +1,10 @@
+sector,subsector,limite_dia_db,limite_noche_db
+A,"Hospitales, bibliotecas, guarderias, sanatorios, hogares geriatricos",55,50
+B,"Zonas residenciales o exclusivamente destinadas para desarrollo habitacional, hoteleria y hospedajes",65,55
+B,"Universidades, colegios, escuelas, centros de estudio e investigacion",65,55
+B,"Parques en zonas urbanas diferentes a los parques mecanicos al aire libre",65,55
+C,"Zonas con usos permitidos industriales (industrias en general, zonas portuarias, parques industriales, zonas francas)",75,75
+C,"Zonas con usos permitidos comerciales (centros comerciales, almacenes, talleres, restaurantes, bares, discotecas, casinos)",70,60
+C,"Zonas con usos permitidos de oficinas o institucionales",65,55
+C,"Otros usos relacionados: parques mecanicos al aire libre, espectaculos publicos al aire libre",80,75
+D,"Residencial suburbana, rural habitada (agropecuaria), zonas de recreacion y descanso (parques y reservas naturales)",55,50

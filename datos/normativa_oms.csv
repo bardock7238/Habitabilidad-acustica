@@ -1,0 +1,6 @@
+recinto,horario,limite_db
+Dormitorio,noche,30
+Sala,dia,35
+Aula,dia,35
+Hospital,dia,30
+Hospital,noche,40
