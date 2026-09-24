@@ -46,4 +46,4 @@ Peor caso noche: Dorm 103, se pasa por 25.0 dB (el parlante del vecino).
 ## Conclusión
 De día la mitad de las salas no pasa por la TV, aspiradora y lavadora. De noche 2 dormitorios no pasan por el parlante y la conversación. El modelo responde bien a lo que pedía la issue después del arreglo del porcentaje.
 
-Números sacados replicando el modelo (grafo + Dijkstra + suma energética) en PowerShell porque acá no había JDK a la mano; pendientes de confirmar con `java -cp out acustica.Main` cuando se tenga Java.
+Números verificados corriendo el código real con Java 17 (`javac` + `java -cp out acustica.Main`). Salida igual a la de arriba, con `Habitables: 3/6 (50,0%)` de día y `4/6 (66,7%)` de noche. Además `VerificacionGrafo` da 16/16 OK y `VerificacionRayTracing` 19/19 OK.
