@@ -80,6 +80,14 @@ public class Simulador {
                 && fuente.getHorario().name().equalsIgnoreCase(horario);
     }
 
+    public double calcularPorcentajeHabitable() {
+        if (resultados.isEmpty()) {
+            return 0.0;
+        }
+        long habitables = resultados.stream().filter(ResultadoHabitabilidad::isHabitable).count();
+        return 100.0 * habitables / resultados.size();
+    }
+
     public List<ResultadoHabitabilidad> getResultados() {
         return resultados;
     }
