@@ -1,7 +1,7 @@
 package acustica.dominio;
-
 import java.util.ArrayList;
 import java.util.List;
+import acustica.normativa.Normativa;
 
 public class Habitacion {
 
@@ -13,6 +13,8 @@ public class Habitacion {
     private final double alto;
     private final List<Superficie> superficies;
     private final List<FuenteSonido> fuentes;
+    private double nivelRuido;
+    private boolean habitable;
 
     public Habitacion(String id, String nombre, String tipo, double ancho, double largo, double alto) {
         this.id = id;
@@ -35,6 +37,22 @@ public class Habitacion {
 
     public void agregarFuente(FuenteSonido fuente) {
         fuentes.add(fuente);
+    }
+    public boolean evaluarHabitabilidad(Normativa normativa, String horario) {
+    this.habitable = normativa.cumple(nivelRuido, tipo, horario);
+    return habitable;
+}
+
+    public void setNivelRuido(double nivelRuido) {
+        this.nivelRuido = nivelRuido;
+    }
+
+    public double getNivelRuido() {
+        return nivelRuido;
+    }
+
+    public boolean isHabitable() {
+        return habitable;
     }
 
     public String getId() {
