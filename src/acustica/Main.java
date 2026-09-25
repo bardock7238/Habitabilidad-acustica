@@ -160,6 +160,11 @@ public class Main {
             System.out.println(resultado);
         }
 
+        long habitables = resultados.stream().filter(ResultadoHabitabilidad::isHabitable).count();
+        double porcentaje = resultados.isEmpty() ? 0.0 : 100.0 * habitables / resultados.size();
+        System.out.println(String.format(
+                "Habitables: %d/%d (%.1f%%)", habitables, resultados.size(), porcentaje));
+
         resultados.stream()
                 .max((a, b) -> Double.compare(a.getExceso(), b.getExceso()))
                 .ifPresent(peorCaso -> System.out.println(
