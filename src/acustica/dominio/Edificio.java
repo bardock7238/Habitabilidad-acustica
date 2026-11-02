@@ -1,8 +1,10 @@
 package acustica.dominio;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+/** Edificio compuesto por habitaciones y la normativa que se le aplica. */
 public class Edificio {
 
     private final String nombre;
@@ -40,7 +42,8 @@ public class Edificio {
         return normativaAplicable;
     }
 
+    /** Vista de solo lectura de las habitaciones del edificio. */
     public List<Habitacion> getHabitaciones() {
-        return habitaciones;
+        return Collections.unmodifiableList(habitaciones);
     }
 }

@@ -125,6 +125,9 @@ public class Main {
         dormitorios.get(5).agregarFuente(conversacion);
 
         // ---------- 5. Normativa ----------
+        // En este escenario se evalúa por tipo de recinto con la tabla OMS.
+        // Si una habitación tuviera actividadPrevista (Actividad.DORMIR,
+        // ESTUDIAR, etc.), el Simulador usaría esos límites en su lugar.
         Normativa normativa = new Normativa();
 
         // ---------- 6. Mostrar las fuentes generadas ----------

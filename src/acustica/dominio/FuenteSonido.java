@@ -1,24 +1,32 @@
 package acustica.dominio;
- 
-// Representa una fuente de ruido dentro de una habitación.
+
+/**
+ * Fuente de ruido dentro de una habitación.
+ *
+ * El dato que usa el motor de simulación es {@link #obtenerNivelEmitido()}.
+ * El tipo (fija/móvil), la frecuencia y el horario son metadatos del dominio:
+ * el horario sí filtra qué fuentes están activas en cada evaluación; el tipo
+ * y la frecuencia se muestran en el informe, pero el modelo v2 (banda única)
+ * no los usa en el cálculo.
+ */
 public class FuenteSonido {
- 
-    // Tipo de fuente según su posición: fija o móvil.
+
+    /** Tipo de fuente según su posición: fija o móvil. */
     public enum Tipo {
         FIJA,
         MOVIL
     }
- 
-    //Horario en el que la fuente está activa (afecta el límite normativo aplicable). */
+
+    /** Horario en el que la fuente está activa (afecta el límite aplicable). */
     public enum Horario {
         DIA,
         NOCHE
     }
- 
+
     private String id;
     private Tipo tipo;
     private double nivelSonido; // en decibeles (dB)
-    private double frecuencia;  // en Hercios (Hz)
+    private double frecuencia;  // en Hercios (Hz); metadato, no usado en el cálculo
     private Horario horario;
  
     public FuenteSonido(String id, Tipo tipo, double nivelSonido, double frecuencia, Horario horario) {

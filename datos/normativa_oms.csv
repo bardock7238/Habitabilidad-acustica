@@ -1,6 +1,8 @@
 recinto,horario,limite_db
+Dormitorio,dia,35
 Dormitorio,noche,30
 Sala,dia,35
+Sala,noche,30
 Aula,dia,35
 Hospital,dia,30
-Hospital,noche,40
+Hospital,noche,30

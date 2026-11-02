@@ -1,14 +1,14 @@
 # Modelo matemático — Habitabilidad acústica
 
-Documento para `docs/modelo-matematico.md`. Describe lo que calculan `Grafo`, `Dijkstra`,
-`CalculoAcustico` y `Simulador`, y las hipótesis que se asumen.
+Describe lo que calculan `Grafo`, `Dijkstra`, `CalculoAcustico` y `Simulador`,
+y las hipótesis que se asumen.
 
 ## 1. Magnitudes y unidades
 
 | Símbolo | Significado | Unidad | Clase |
 |---|---|---|---|
 | L_s | Nivel que emite la fuente s (en su propia habitación) | dBA | `FuenteSonido.nivelSonido` |
-| R_k | Índice de reducción sonora de la superficie k (pérdida de transmisión) | dB | `Material` |
+| R_k | Índice de reducción sonora de la superficie k (pérdida de transmisión) | dB | `Material.getIndiceReduccionSonora()` |
 | S_k | Área de la superficie k | m² | `Superficie.area` |
 | V_j | Volumen de la habitación j | m³ | `Habitacion.calcularVolumen()` |
 | A_j | Absorción equivalente de la habitación j | m² | `Habitacion.calcularAbsorcion()` |
@@ -17,7 +17,8 @@ Documento para `docs/modelo-matematico.md`. Describe lo que calculan `Grafo`, `D
 
 ## 2. Absorción de la habitación receptora (Sabine)
 
-    A_j = 0.16 · V_j / T60        (T60 = 0.5 s por defecto, recinto amoblado)
+    A_j = 0.16 · V_j / T60        (T60 = 0.5 s por defecto, recinto amoblado;
+                                   configurable con Habitacion.setT60())
 
 ## 3. Atenuación de una superficie (peso de la arista i → j)
 
@@ -55,12 +56,20 @@ Con N rayos el nivel se **promedia** (no se suma):
 
 ## 7. Habitabilidad
 
-Para una habitación con actividad prevista *a* y horario *h*:
+Si la habitación tiene una actividad prevista *a* (`Habitacion.getActividadPrevista()`),
+se usan los dos umbrales de `Actividad` para el horario *h*:
 
     HABITABLE            si L_j ≤ Lim_óptimo(a, h)
     TOLERABLE            si Lim_óptimo < L_j ≤ Lim_máx(a, h)
     NO HABITABLE         si L_j > Lim_máx(a, h)
     NO EVALUABLE         si no existe límite para (a, h)
+
+Si no hay actividad prevista, se usa el límite único de `Normativa` para el
+tipo de recinto y el horario:
+
+    HABITABLE            si L_j ≤ Lim(tipo, h)
+    NO HABITABLE         si L_j > Lim(tipo, h)
+    NO EVALUABLE         si no existe límite para (tipo, h)
 
 ## 8. Limitaciones asumidas
 

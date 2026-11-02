@@ -1,11 +1,13 @@
 package acustica.normativa;
+
 import acustica.dominio.Habitacion;
 
 /**
- * Guarda el resultado de evaluar una habitación: el nivel final de ruido
- * que llegó a ella, el límite normativo contra el que se comparó y si es
- * habitable o no. El Simulador crea uno de estos por cada Habitacion.
- * Es un objeto de datos inmutable: no calcula nada, solo almacena.
+ * Resultado de evaluar una habitación: el nivel final de ruido que llegó a
+ * ella, el límite normativo contra el que se comparó y el estado resultante.
+ * El {@code Simulador} crea uno de estos por cada {@link Habitacion}.
+ *
+ * Es un objeto de datos: no calcula la propagación, solo almacena el resultado.
  */
 public class ResultadoHabitabilidad {
 
@@ -14,7 +16,8 @@ public class ResultadoHabitabilidad {
     private final double limiteAplicado;  // dB contra el que se comparó
     private final EstadoHabitabilidad estado;
 
-    public ResultadoHabitabilidad(Habitacion habitacion, double nivelFinal, double limiteAplicado, EstadoHabitabilidad estado) {
+    public ResultadoHabitabilidad(Habitacion habitacion, double nivelFinal,
+            double limiteAplicado, EstadoHabitabilidad estado) {
         this.habitacion = habitacion;
         this.nivelFinal = nivelFinal;
         this.limiteAplicado = limiteAplicado;
@@ -40,14 +43,16 @@ public class ResultadoHabitabilidad {
     public EstadoHabitabilidad getEstado() {
         return estado;
     }
-        /**
+
+    /**
      * Cuántos dB se pasa (positivo) o le sobran (negativo) respecto al límite.
-     * Útil para que el Simulador encuentre el "peor caso" del edificio.
+     * Para resultados NO_EVALUABLE devuelve {@link Double#NEGATIVE_INFINITY},
+     * de modo que no compitan por el "peor caso" del edificio.
      */
     public double getExceso() {
         return estado == EstadoHabitabilidad.NO_EVALUABLE
-        ? Double.NEGATIVE_INFINITY
-        : nivelFinal - limiteAplicado;
+                ? Double.NEGATIVE_INFINITY
+                : nivelFinal - limiteAplicado;
     }
 
     @Override
@@ -58,6 +63,5 @@ public class ResultadoHabitabilidad {
                 nivelFinal,
                 limiteAplicado,
                 estado);
-        
     }
 }

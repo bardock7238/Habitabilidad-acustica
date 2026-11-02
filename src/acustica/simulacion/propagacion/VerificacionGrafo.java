@@ -16,11 +16,10 @@ import java.util.List;
  *   - Las fachadas conecten con el nodo EXTERIOR.
  *   - Dijkstra encuentre el camino correcto y la atenuación acumulada
  *     coincida con lo calculado a mano.
- */
-/**
- *  Se ejecuta con:
- * javac -d out src/acustica/dominio/*.java src/acustica/normativa/*.java src/acustica/simulacion/propagacion/*.java
- * java -cp out acustica.simulacion.propagacion.VerificacionGrafo
+ *
+ * Se ejecuta con:
+ *   javac -d out $(find src -name "*.java")
+ *   java -cp out acustica.simulacion.propagacion.VerificacionGrafo
  */
 public class VerificacionGrafo {
 
@@ -107,7 +106,8 @@ public class VerificacionGrafo {
         total++; fallos += verificar("El camino de H1 a H2 pasa por el Pasillo",
                 camino2.contains("P1"));
         total++; fallos += verificar("La atenuacion de H1 a H2 es la suma de las dos puertas",
-                r2.getAtenuacionHasta("H2") == puerta1.calcularAtenuacion() + puerta2.calcularAtenuacion());
+                cercano(r2.getAtenuacionHasta("H2"),
+                        puerta1.calcularAtenuacionHacia(pasillo) + puerta2.calcularAtenuacionHacia(h2)));
 
         // Escenario 3: edificio con fachada a una vía
         Habitacion recepcion = new Habitacion("R1", "Recepcion", "Oficina", 5, 4, 2.5);
@@ -125,7 +125,7 @@ public class VerificacionGrafo {
 
         Dijkstra.Resultado r3 = Dijkstra.calcular(grafo3, Grafo.EXTERIOR);
         total++; fallos += verificar("Atenuacion EXTERIOR->Recepcion = atenuacion de la fachada",
-                r3.getAtenuacionHasta("R1") == fachadaVia.calcularAtenuacion());
+                cercano(r3.getAtenuacionHasta("R1"), fachadaVia.calcularAtenuacionHacia(recepcion)));
 
         // Resumen
         System.out.println("\n=== Resumen ===");
@@ -137,9 +137,15 @@ public class VerificacionGrafo {
         }
     }
 
+    /** Comprueba si existe una arista directa (no alcanzabilidad transitiva). */
     private static boolean estanConectados(Grafo grafo, String desde, String hacia) {
         return grafo.getVecinos(desde).stream()
                 .anyMatch(arista -> arista.getDestino().equals(hacia));
+    }
+
+    /** Compara dos atenuaciones con tolerancia, para no depender del punto flotante. */
+    private static boolean cercano(double a, double b) {
+        return Math.abs(a - b) < 1e-9;
     }
 
     private static int verificar(String descripcion, boolean condicion) {
