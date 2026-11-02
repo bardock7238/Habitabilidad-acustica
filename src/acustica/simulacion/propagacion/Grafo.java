@@ -54,12 +54,15 @@ public class Grafo {
                     continue; // superficie interior ya procesada desde la otra habitación
                 }
 
-                String origen = superficie.getHabitacion1().getId();
-                String destino = superficie.esParedInterior()
-                        ? superficie.getHabitacion2().getId()
-                        : EXTERIOR;
-
-                grafo.agregarAristaNoDirigida(origen, destino, superficie.calcularAtenuacion());
+            Habitacion h1 = superficie.getHabitacion1();
+            if (superficie.esParedInterior()) {
+                Habitacion h2 = superficie.getHabitacion2();
+                grafo.agregarArista(h1.getId(), h2.getId(), superficie.calcularAtenuacionHacia(h2));
+                grafo.agregarArista(h2.getId(), h1.getId(), superficie.calcularAtenuacionHacia(h1));
+            } else {
+                grafo.agregarArista(h1.getId(), EXTERIOR, superficie.calcularAtenuacion());
+                grafo.agregarArista(EXTERIOR, h1.getId(), superficie.calcularAtenuacionHacia(h1));
+            }
             }
         }
 

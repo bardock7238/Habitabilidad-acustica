@@ -3,6 +3,7 @@ package acustica.simulacion;
 import java.util.ArrayList;
 import java.util.List;
 
+
 import acustica.dominio.Edificio;
 import acustica.dominio.FuenteSonido;
 import acustica.dominio.Habitacion;
@@ -10,6 +11,8 @@ import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
 import acustica.simulacion.propagacion.CalculoAcustico;
 import acustica.simulacion.propagacion.Grafo;
+import acustica.dominio.Actividad;
+import acustica.normativa.EstadoHabitabilidad;
 
 
 public class Simulador {
@@ -34,21 +37,31 @@ public class Simulador {
         Grafo grafo = Grafo.desdeEdificio(edificio);
 
         for (Habitacion destino : edificio.getHabitaciones()) {
-            double nivelTotal = calcularNivelTotal(destino, horario, grafo);
-            destino.setNivelRuido(nivelTotal);
+        double nivelTotal = calcularNivelTotal(destino, horario, grafo);
+        destino.setNivelRuido(nivelTotal);
 
-            try {
-                boolean habitable = destino.evaluarHabitabilidad(normativa, horario);
-                double limite = normativa.obtenerLimite(destino.getTipo(), horario);
-                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, limite, habitable));
-            } catch (IllegalArgumentException sinLimite) {
-                // La normativa no define límite para este tipo/horario (p.ej. Sala-noche
-                // no está en la OMS). No se puede evaluar; se deja constancia y se sigue
-                // con las demás habitaciones en vez de detener toda la simulación.
-                System.out.println("Aviso: sin limite normativo para " + destino.getTipo()
-                        + "-" + horario + " (habitacion " + destino.getNombre() + ")");
-            }
+        Actividad actividad = destino.getActividadPrevista();
+        if (actividad != null) {
+            EstadoHabitabilidad estado = nivelTotal <= actividad.limiteOptimo
+                    ? EstadoHabitabilidad.HABITABLE
+                    : nivelTotal <= actividad.limiteMax
+                            ? EstadoHabitabilidad.TOLERABLE
+                            : EstadoHabitabilidad.NO_HABITABLE;
+            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, actividad.limiteOptimo, estado));
+            continue;
         }
+
+        try {
+            double limite = normativa.obtenerLimite(destino.getTipo(), horario);
+            EstadoHabitabilidad estado = nivelTotal <= limite
+                    ? EstadoHabitabilidad.HABITABLE
+                    : EstadoHabitabilidad.NO_HABITABLE;
+            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, limite, estado));
+        } catch (IllegalArgumentException sinLimite) {
+            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, Double.NaN,
+                    EstadoHabitabilidad.NO_EVALUABLE));
+        }
+    }
 
         return resultados;
     }
@@ -60,6 +73,7 @@ public class Simulador {
      */
     private double calcularNivelTotal(Habitacion destino, String horario, Grafo grafo) {
         List<Double> aportes = new ArrayList<>();
+        aportes.add(destino.getNivelFondo());
 
         for (Habitacion origen : edificio.getHabitaciones()) {
             for (FuenteSonido fuente : origen.getFuentes()) {
