@@ -23,8 +23,15 @@ public class Superficie {
     }
 
     public double calcularAtenuacion() {
-        return area * material.getCoeficienteAtenuacion();
+        return material.getCoeficienteAtenuacion();
     }
+
+    public double calcularAtenuacionHacia(Habitacion receptora) {
+        if (receptora == null) 
+            return calcularAtenuacion();     // hacia el EXTERIOR
+    double w = calcularAtenuacion() - 10 * Math.log10(area / receptora.calcularAbsorcion());
+    return Math.max(0.0, w);      // Dijkstra exige pesos >= 0
+}
 
     public boolean esParedInterior() {
         return habitacion2 != null;

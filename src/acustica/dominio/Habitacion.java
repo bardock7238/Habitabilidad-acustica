@@ -13,6 +13,9 @@ public class Habitacion {
     private final double alto;
     private final List<Superficie> superficies;
     private final List<FuenteSonido> fuentes;
+    private double nivelFondo = 25.0;      // dBA
+    private double t60 = 0.5;              // s
+    private Actividad actividadPrevista;   // nueva
     private double nivelRuido;
     private boolean habitable;
 
@@ -85,5 +88,18 @@ public class Habitacion {
 
     public List<FuenteSonido> getFuentes() {
         return fuentes;
+    }
+
+    public double calcularAbsorcion() { 
+        return 0.16 * calcularVolumen() / t60;
+    }
+    public double getNivelFondo() { 
+        return nivelFondo; 
+    }
+    public void setActividadPrevista(Actividad a) {
+         this.actividadPrevista = a; 
+        }
+    public Actividad getActividadPrevista() { 
+        return actividadPrevista;
     }
 }

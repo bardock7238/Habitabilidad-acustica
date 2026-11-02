@@ -12,13 +12,13 @@ public class ResultadoHabitabilidad {
     private final Habitacion habitacion;
     private final double nivelFinal;      // dB(A) que llegan a la habitación
     private final double limiteAplicado;  // dB contra el que se comparó
-    private final boolean habitable;
+    private final EstadoHabitabilidad estado;
 
-    public ResultadoHabitabilidad(Habitacion habitacion, double nivelFinal, double limiteAplicado, boolean habitable) {
+    public ResultadoHabitabilidad(Habitacion habitacion, double nivelFinal, double limiteAplicado, EstadoHabitabilidad estado) {
         this.habitacion = habitacion;
         this.nivelFinal = nivelFinal;
         this.limiteAplicado = limiteAplicado;
-        this.habitable = habitable;
+        this.estado = estado;
     }
 
     public Habitacion getHabitacion() {
@@ -34,15 +34,20 @@ public class ResultadoHabitabilidad {
     }
 
     public boolean isHabitable() {
-        return habitable;
+        return estado == EstadoHabitabilidad.HABITABLE || estado == EstadoHabitabilidad.TOLERABLE;
     }
 
-    /**
+    public EstadoHabitabilidad getEstado() {
+        return estado;
+    }
+        /**
      * Cuántos dB se pasa (positivo) o le sobran (negativo) respecto al límite.
      * Útil para que el Simulador encuentre el "peor caso" del edificio.
      */
     public double getExceso() {
-        return nivelFinal - limiteAplicado;
+        return estado == EstadoHabitabilidad.NO_EVALUABLE
+        ? Double.NEGATIVE_INFINITY
+        : nivelFinal - limiteAplicado;
     }
 
     @Override
@@ -52,6 +57,7 @@ public class ResultadoHabitabilidad {
                 habitacion.getTipo(),
                 nivelFinal,
                 limiteAplicado,
-                habitable ? "HABITABLE" : "NO HABITABLE");
+                estado);
+        
     }
 }

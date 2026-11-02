@@ -37,9 +37,9 @@ public class Main {
     public static void main(String[] args) {
 
         // ---------- 1. Materiales ----------
-        Material concreto = new Material("Concreto", 6.0, 0.2);   // muros solidos: medianeras y fachadas
-        Material drywall = new Material("Drywall", 4.0, 0.1);     // particiones internas de cada apartamento
-        Material vidrio = new Material("Vidrio doble", 20.0, 0.01); // ventanas con buen aislamiento acustico
+        Material concreto = new Material("Concreto", 55, 0.2);   // muros solidos: medianeras y fachadas
+        Material drywall = new Material("Drywall", 30, 0.1);     // particiones internas de cada apartamento
+        Material vidrio = new Material("Vidrio doble", 30, 0.01); // ventanas con buen aislamiento acustico
 
         // ---------- 2. Habitaciones + 3. Superficies (generadas en bucle) ----------
         List<Habitacion> dormitorios = new ArrayList<>();
