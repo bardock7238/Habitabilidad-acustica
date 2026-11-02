@@ -19,9 +19,12 @@ public class Simulador {
 
     private final Edificio edificio;
     private final Normativa normativa;
-    private final List<ResultadoHabitabilidad> resultados;
+    private List<ResultadoHabitabilidad> resultados;
 
     public Simulador(Edificio edificio, Normativa normativa) {
+        if (edificio == null || normativa == null) {
+            throw new IllegalArgumentException("El edificio y la normativa no pueden ser null");
+        }
         this.edificio = edificio;
         this.normativa = normativa;
         this.resultados = new ArrayList<>();
@@ -33,37 +36,51 @@ public class Simulador {
      * @return la lista de resultados, uno por habitación
      */
     public List<ResultadoHabitabilidad> ejecutar(String horario) {
-        resultados.clear();
+        if (horario == null) {
+            throw new IllegalArgumentException("El horario no puede ser null");
+        }
+        // Lista local: cada ejecución devuelve una lista independiente. Si se
+        // reutilizara el mismo objeto, los resultados de "dia" cambiarían al
+        // ejecutar "noche".
+        List<ResultadoHabitabilidad> resultados = new ArrayList<>();
         Grafo grafo = Grafo.desdeEdificio(edificio);
 
         for (Habitacion destino : edificio.getHabitaciones()) {
-        double nivelTotal = calcularNivelTotal(destino, horario, grafo);
-        destino.setNivelRuido(nivelTotal);
+            double nivelTotal = calcularNivelTotal(destino, horario, grafo);
+            destino.setNivelRuido(nivelTotal);
 
-        Actividad actividad = destino.getActividadPrevista();
-        if (actividad != null) {
-            EstadoHabitabilidad estado = nivelTotal <= actividad.limiteOptimo
-                    ? EstadoHabitabilidad.HABITABLE
-                    : nivelTotal <= actividad.limiteMax
-                            ? EstadoHabitabilidad.TOLERABLE
-                            : EstadoHabitabilidad.NO_HABITABLE;
-            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, actividad.limiteOptimo, estado));
-            continue;
+            Actividad actividad = destino.getActividadPrevista();
+            if (actividad != null) {
+                EstadoHabitabilidad estado = nivelTotal <= actividad.limiteOptimo
+                        ? EstadoHabitabilidad.HABITABLE
+                        : nivelTotal <= actividad.limiteMax
+                                ? EstadoHabitabilidad.TOLERABLE
+                                : EstadoHabitabilidad.NO_HABITABLE;
+                destino.setHabitable(esHabitable(estado));
+                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, actividad.limiteOptimo, estado));
+                continue;
+            }
+
+            try {
+                double limite = normativa.obtenerLimite(destino.getTipo(), horario);
+                EstadoHabitabilidad estado = nivelTotal <= limite
+                        ? EstadoHabitabilidad.HABITABLE
+                        : EstadoHabitabilidad.NO_HABITABLE;
+                destino.setHabitable(esHabitable(estado));
+                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, limite, estado));
+            } catch (IllegalArgumentException sinLimite) {
+                destino.setHabitable(false);
+                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, Double.NaN,
+                        EstadoHabitabilidad.NO_EVALUABLE));
+            }
         }
 
-        try {
-            double limite = normativa.obtenerLimite(destino.getTipo(), horario);
-            EstadoHabitabilidad estado = nivelTotal <= limite
-                    ? EstadoHabitabilidad.HABITABLE
-                    : EstadoHabitabilidad.NO_HABITABLE;
-            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, limite, estado));
-        } catch (IllegalArgumentException sinLimite) {
-            resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, Double.NaN,
-                    EstadoHabitabilidad.NO_EVALUABLE));
-        }
+        this.resultados = resultados;
+        return resultados;
     }
 
-        return resultados;
+    private static boolean esHabitable(EstadoHabitabilidad estado) {
+        return estado == EstadoHabitabilidad.HABITABLE || estado == EstadoHabitabilidad.TOLERABLE;
     }
 
     /**
@@ -95,7 +112,7 @@ public class Simulador {
     }
 
     public List<ResultadoHabitabilidad> getResultados() {
-        return resultados;
+        return List.copyOf(resultados);
     }
 
     public Edificio getEdificio() {

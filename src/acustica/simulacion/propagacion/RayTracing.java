@@ -67,6 +67,9 @@ public class RayTracing {
      * @return lista de rayos ya emitidos, cada uno con su superficie de impacto asignada (o ninguna)
      */
     public static List<Rayo> emitirRayos(FuenteSonido fuente, Habitacion habitacion, int cantidadRayos) {
+        if (fuente == null || habitacion == null) {
+            throw new IllegalArgumentException("La fuente y la habitación no pueden ser null");
+        }
         if (cantidadRayos <= 0) {
             throw new IllegalArgumentException("cantidadRayos debe ser mayor que 0");
         }

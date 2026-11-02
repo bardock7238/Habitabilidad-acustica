@@ -8,20 +8,22 @@ import acustica.dominio.Habitacion;
 /**
  * Cálculo acústico del rayo (Tarea 4.2).
  *
- * Calcula cuánta energía pierde cada rayo al atravesar cada superficie
- * y suma los aportes para obtener el nivel de ruido de cada habitación.
+ * Calcula cuánta energía pierde cada rayo al atravesar una superficie y
+ * combina los aportes para obtener el nivel de ruido de una habitación.
  *
  * Depende de:
  * - Tarea 4.1 (RayTracing): origen de los rayos y su superficie impactada.
- * - Tarea 1.1 (Material): coeficiente de atenuación del material.
+ * - Tarea 1.1 (Material): índice de reducción sonora R_k del material.
  * - Tarea 1.3 (Superficie): Superficie.calcularAtenuacion() en dB.
  *
- * Modelo:
- * - Cada rayo pierde la atenuación de la superficie que atraviesa:
- *   nivelAtenuado = nivelInicial - atenuación.
+ * Modelo (v2, ver docs/modelo-matematico.md):
+ * - Cada rayo pierde solo R_k de la superficie que atraviesa:
+ *   nivelAtenuado = nivelInicial - R_k.
  * - Si el rayo no impactó ninguna superficie, no pierde energía.
- * - Los aportes se suman de forma energética (incoherente):
- *   L_total = 10 * log10( suma( 10^(Li/10) ) ).
+ * - El nivel de la habitación es el PROMEDIO energético de los N rayos:
+ *   L = 10 * log10( (1/N) * suma( 10^(Li/10) ) ).
+ * - {@link #sumarNiveles(double...)} sigue sumando aportes de fuentes
+ *   distintas (suma energética incoherente).
  */
 public class CalculoAcustico {
 
@@ -72,7 +74,12 @@ public class CalculoAcustico {
 
     /**
      * Calcula el nivel de ruido que aportan varios rayos a una habitación.
-     * Cada rayo se atenúa con su superficie y luego se suman los aportes.
+     * Cada rayo se atenúa con su superficie y luego se promedian los aportes.
+     *
+     * El reparto angular de {@link RayTracing} ya asigna a cada superficie una
+     * fracción de los 360° proporcional a su área, así que cada rayo representa
+     * una fracción 1/N de la energía emitida. Por eso el nivel se promedia
+     * (no se suma): sumar N rayos haría que el resultado dependiera de N.
      *
      * @param rayos rayos que llegan a la habitación (ya emitidos)
      * @return nivel total en dB; Double.NEGATIVE_INFINITY si la lista está vacía
@@ -85,12 +92,13 @@ public class CalculoAcustico {
         for (int i = 0; i < rayos.size(); i++) {
             niveles[i] = calcularNivelRayo(rayos.get(i));
         }
-        return sumarNiveles(niveles);
+        double nivelSumado = sumarNiveles(niveles);
+        return nivelSumado - 10.0 * Math.log10(rayos.size());
     }
 
     /**
      * Propaga una fuente dentro de su habitación: emite los rayos,
-     * calcula la pérdida de cada uno y suma el nivel total recibido.
+     * calcula la pérdida de cada uno y promedia el nivel total recibido.
      *
      * @param fuente fuente de sonido que emite
      * @param habitacion habitación donde está la fuente
