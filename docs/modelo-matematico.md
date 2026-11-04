@@ -13,7 +13,8 @@ y las hipótesis que se asumen.
 | V_j | Volumen de la habitación j | m³ | `Habitacion.calcularVolumen()` |
 | A_j | Absorción equivalente de la habitación j | m² | `Habitacion.calcularAbsorcion()` |
 | L_fondo | Ruido de fondo de la habitación | dBA | `Habitacion.nivelFondo` |
-| Lim(a, h) | Límite tolerado por la actividad *a* en el horario *h* | dBA | `Actividad` / `Normativa` |
+| Lim(a) | Límite de ruido recibido de la actividad *a* (solo las que exigen silencio) | dBA | `Actividad` / `Normativa` |
+| E_a | Nivel que genera la actividad *a* (alto impacto) | dBA | `Actividad.emiteDba` |
 
 ## 2. Absorción de la habitación receptora (Sabine)
 
@@ -54,18 +55,36 @@ Con N rayos el nivel se **promedia** (no se suma):
 
     L = 10·log10( (1/N) · Σ_i 10^(L_i/10) )
 
-## 7. Habitabilidad
+## 7. Habitabilidad (árbol de decisión por actividad)
 
-Si la habitación tiene una actividad prevista *a* (`Habitacion.getActividadPrevista()`),
-se usan los dos umbrales de `Actividad` para el horario *h*:
+Si la habitación tiene una actividad prevista *a* (`Habitacion.getActividadPrevista()`), se
+evalúa según su categoría (`Actividad.categoria`):
 
-    HABITABLE            si L_j ≤ Lim_óptimo(a, h)
-    TOLERABLE            si Lim_óptimo < L_j ≤ Lim_máx(a, h)
-    NO HABITABLE         si L_j > Lim_máx(a, h)
-    NO EVALUABLE         si no existe límite para (a, h)
+**Nodo 1 = SÍ — exige silencio** (DORMIR, ESTUDIAR, LEER). Se mide el ruido que **llega** de
+otros espacios (Nodo 2, tope 40 dBA):
 
-Si no hay actividad prevista, se usa el límite único de `Normativa` para el
-tipo de recinto y el horario:
+    HABITABLE            si L_j ≤ Lim_óptimo(a)
+    TOLERABLE            si Lim_óptimo < L_j ≤ Lim_máx(a)
+    NO HABITABLE         si L_j > Lim_máx(a)
+
+**Nodo 3 = NO — actividad moderada** (LLAMADAS, CONVERSAR): HABITABLE, no se compara contra
+ningún límite.
+
+**Nodo 3 = SÍ — alto impacto** (ENTRETENIMIENTO, INSTRUMENTO, EJERCICIO). Se mide si el
+aislamiento hacia cada habitación vecina *v* alcanza (Nodo 4):
+
+    aislamiento_requerido(v) = E_a − Lim(v)          E_a = Actividad.emiteDba
+    aislamiento_real(v)      = Att(j → v)            (Dijkstra, sección 4)
+    HABITABLE            si Att(j → v) ≥ E_a − Lim(v) para toda vecina v
+    NO HABITABLE         si falla en alguna
+
+Lim(v) es el límite_máx de la actividad de *v* si exige silencio; si *v* no tiene actividad,
+el de `Normativa` para su tipo y horario. Las vecinas con actividad moderada o de alto
+impacto, o sin límite definido, no se tienen en cuenta. El resultado reporta la vecina
+más afectada (su nivel y su límite).
+
+Si no hay actividad prevista, se usa el límite único de `Normativa` para el tipo de recinto
+y el horario:
 
     HABITABLE            si L_j ≤ Lim(tipo, h)
     NO HABITABLE         si L_j > Lim(tipo, h)

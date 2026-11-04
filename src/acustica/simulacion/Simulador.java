@@ -10,6 +10,7 @@ import acustica.dominio.Habitacion;
 import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
 import acustica.simulacion.propagacion.CalculoAcustico;
+import acustica.simulacion.propagacion.Dijkstra;
 import acustica.simulacion.propagacion.Grafo;
 import acustica.dominio.Actividad;
 import acustica.normativa.EstadoHabitabilidad;
@@ -51,13 +52,7 @@ public class Simulador {
 
             Actividad actividad = destino.getActividadPrevista();
             if (actividad != null) {
-                EstadoHabitabilidad estado = nivelTotal <= actividad.limiteOptimo
-                        ? EstadoHabitabilidad.HABITABLE
-                        : nivelTotal <= actividad.limiteMax
-                                ? EstadoHabitabilidad.TOLERABLE
-                                : EstadoHabitabilidad.NO_HABITABLE;
-                destino.setHabitable(esHabitable(estado));
-                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, actividad.limiteOptimo, estado));
+                resultados.add(evaluarPorActividad(destino, actividad, nivelTotal, horario, grafo));
                 continue;
             }
 
@@ -77,6 +72,81 @@ public class Simulador {
 
         this.resultados = resultados;
         return resultados;
+    }
+
+    /**
+     * Árbol de decisión por actividad:
+     * - EXIGE_SILENCIO (Nodo 2): compara el ruido que llega con sus límites.
+     * - MODERADA (Nodo 3 = NO): habitable, no se compara contra ningún límite.
+     * - ALTO_IMPACTO (Nodo 4): revisa si el aislamiento hacia cada vecino
+     *   cubre {@code emiteDba - límite del vecino}.
+     */
+    private ResultadoHabitabilidad evaluarPorActividad(Habitacion habitacion, Actividad actividad,
+            double nivelTotal, String horario, Grafo grafo) {
+        EstadoHabitabilidad estado;
+        double nivelReportado = nivelTotal;
+        double limiteReportado;
+
+        switch (actividad.categoria) {
+            case EXIGE_SILENCIO:
+                limiteReportado = actividad.limiteOptimo;
+                estado = nivelTotal <= actividad.limiteOptimo
+                        ? EstadoHabitabilidad.HABITABLE
+                        : nivelTotal <= actividad.limiteMax
+                                ? EstadoHabitabilidad.TOLERABLE
+                                : EstadoHabitabilidad.NO_HABITABLE;
+                break;
+            case MODERADA:
+                limiteReportado = Double.POSITIVE_INFINITY;
+                estado = EstadoHabitabilidad.HABITABLE;
+                break;
+            default: // ALTO_IMPACTO
+                limiteReportado = Double.POSITIVE_INFINITY;
+                estado = EstadoHabitabilidad.HABITABLE;
+                double peorExceso = Double.NEGATIVE_INFINITY;
+                Dijkstra.Resultado camino = Dijkstra.calcular(grafo, habitacion.getId());
+                for (Habitacion vecina : edificio.getHabitaciones()) {
+                    if (vecina == habitacion) {
+                        continue;
+                    }
+                    double limiteVecina = limiteQueExigeLaVecina(vecina, horario);
+                    if (Double.isNaN(limiteVecina)) {
+                        continue;
+                    }
+                    double nivelEnVecina = CalculoAcustico.calcularNivelConAtenuacion(
+                            actividad.emiteDba, camino.getAtenuacionHasta(vecina.getId()));
+                    double exceso = nivelEnVecina - limiteVecina;
+                    if (exceso > peorExceso) {
+                        peorExceso = exceso;
+                        nivelReportado = nivelEnVecina;
+                        limiteReportado = limiteVecina;
+                    }
+                }
+                if (peorExceso > 0) {
+                    estado = EstadoHabitabilidad.NO_HABITABLE;
+                }
+                break;
+        }
+
+        habitacion.setHabitable(esHabitable(estado));
+        return new ResultadoHabitabilidad(habitacion, nivelReportado, limiteReportado, estado);
+    }
+
+    /**
+     * Límite de ruido que protege a una habitación vecina frente a una
+     * actividad de alto impacto. Devuelve NaN si esa vecina no exige nada
+     * (tiene una actividad moderada o ruidosa, o no hay límite definido).
+     */
+    private double limiteQueExigeLaVecina(Habitacion vecina, String horario) {
+        Actividad actividad = vecina.getActividadPrevista();
+        if (actividad != null) {
+            return actividad.exigeSilencio() ? actividad.limiteMax : Double.NaN;
+        }
+        try {
+            return normativa.obtenerLimite(vecina.getTipo(), horario);
+        } catch (IllegalArgumentException sinLimite) {
+            return Double.NaN;
+        }
     }
 
     private static boolean esHabitable(EstadoHabitabilidad estado) {

@@ -1,34 +1,65 @@
 package acustica.dominio;
 
 /**
- * Actividad prevista en una habitación, con sus umbrales de ruido.
+ * Actividad prevista en una habitación (árbol de decisión de habitabilidad).
  *
- * {@code limiteOptimo} y {@code limiteMax} permiten clasificar el nivel como
- * HABITABLE, TOLERABLE o NO_HABITABLE. {@code emiteDba} es un nivel típico de
- * la actividad, útil como dato descriptivo; el simulador usa el nivel real de
- * cada {@link FuenteSonido}, no este valor.
+ * Cada actividad pertenece a una {@link Categoria}, que decide cómo se evalúa:
+ *
+ * - EXIGE_SILENCIO (Nodo 1 = SI): se mide el ruido que LLEGA de otros
+ *   espacios. Usa {@code limiteOptimo} y {@code limiteMax}.
+ * - MODERADA (Nodo 3 = NO): actividad de nivel moderado; es habitable.
+ * - ALTO_IMPACTO (Nodo 3 = SI): se mide si el aislamiento hacia los vecinos
+ *   alcanza (Nodo 4): aislamiento requerido = {@code emiteDba} - límite del
+ *   vecino.
+ *
+ * {@code emiteDba} es el nivel típico que genera la actividad; solo lo usan
+ * las actividades de alto impacto. Los límites solo aplican a las que exigen
+ * silencio (en las demás valen {@link Double#NaN}).
  */
 public enum Actividad {
-    DORMIR(0, 30, 40),
-    ESTUDIAR(0, 35, 45),
-    LLAMADAS(55, 45, 55),
-    CONVERSAR(65, 55, 65),
-    ENTRETENIMIENTO(75, 65, 75),
-    INSTRUMENTO(85, 75, 85),
-    EJERCICIO(90, 80, 90);
+    DORMIR(Categoria.EXIGE_SILENCIO, 0, 30, 40),
+    ESTUDIAR(Categoria.EXIGE_SILENCIO, 0, 35, 40),
+    LEER(Categoria.EXIGE_SILENCIO, 0, 35, 40),
+    LLAMADAS(Categoria.MODERADA, 55),
+    CONVERSAR(Categoria.MODERADA, 65),
+    ENTRETENIMIENTO(Categoria.ALTO_IMPACTO, 75),
+    INSTRUMENTO(Categoria.ALTO_IMPACTO, 85),
+    EJERCICIO(Categoria.ALTO_IMPACTO, 90);
 
-    /** Nivel típico emitido por la actividad, en dBA (dato descriptivo). */
+    /** Cómo se evalúa la actividad en el árbol de decisión. */
+    public enum Categoria {
+        EXIGE_SILENCIO,
+        MODERADA,
+        ALTO_IMPACTO
+    }
+
+    public final Categoria categoria;
+
+    /** Nivel típico emitido por la actividad, en dBA. */
     public final double emiteDba;
 
-    /** Nivel máximo para considerar la habitación habitable, en dBA. */
+    /** Ruido máximo recibido para considerarla habitable (solo EXIGE_SILENCIO), en dBA. */
     public final double limiteOptimo;
 
-    /** Nivel máximo tolerado antes de declararla no habitable, en dBA. */
+    /** Ruido máximo tolerado antes de declararla no habitable (solo EXIGE_SILENCIO), en dBA. */
     public final double limiteMax;
 
-    Actividad(double emiteDba, double limiteOptimo, double limiteMax) {
+    Actividad(Categoria categoria, double emiteDba, double limiteOptimo, double limiteMax) {
+        this.categoria = categoria;
         this.emiteDba = emiteDba;
         this.limiteOptimo = limiteOptimo;
         this.limiteMax = limiteMax;
+    }
+
+    Actividad(Categoria categoria, double emiteDba) {
+        this(categoria, emiteDba, Double.NaN, Double.NaN);
+    }
+
+    public boolean exigeSilencio() {
+        return categoria == Categoria.EXIGE_SILENCIO;
+    }
+
+    public boolean esAltoImpacto() {
+        return categoria == Categoria.ALTO_IMPACTO;
     }
 }
