@@ -1,0 +1,344 @@
+diff --git a/README.md b/README.md
+index 5d39a79..bbd7f63 100644
+--- a/README.md
++++ b/README.md
+@@ -24,7 +24,8 @@ Habitabilidad-acustica/
+     │   └── propagacion/            # Grafo, Dijkstra, RayTracing,
+     │                               # CalculoAcustico y verificaciones
+     ├── config/                     # CargadorDatos (lee los CSV de datos/)
+-    └── Main.java                   # Punto de entrada con un edificio de ejemplo
++    ├── Main.java                   # Punto de entrada con un edificio de ejemplo
++    └── MainEdificioComunal.java    # Edificio con parqueadero, salón comunal, etc.
+ ```
+ 
+ ## Modelo acústico (resumen)
+@@ -53,6 +54,7 @@ Desde la raíz del proyecto:
+ rm -rf out
+ javac -d out $(find src -name "*.java")
+ java -cp out acustica.Main
++java -cp out acustica.MainEdificioComunal   # edificio con zonas comunes
+ ```
+ 
+ En Windows (PowerShell):
+@@ -76,8 +78,8 @@ Salida esperada:
+ ```
+ VerificacionGrafo:      16 / 16 verificaciones OK
+ VerificacionRayTracing: 21 / 21 verificaciones OK
+-VerificacionNormativa:  15 / 15 verificaciones OK
+-VerificacionActividades: 14 / 14 verificaciones OK
++VerificacionNormativa:  17 / 17 verificaciones OK
++VerificacionActividades: 16 / 16 verificaciones OK
+ ```
+ 
+ Para ver los datos crudos de los CSV:
+diff --git a/datos/normativa_oms.csv b/datos/normativa_oms.csv
+index 3922196..4723c30 100644
+--- a/datos/normativa_oms.csv
++++ b/datos/normativa_oms.csv
+@@ -6,3 +6,5 @@ Sala,noche,30
+ Aula,dia,35
+ Hospital,dia,30
+ Hospital,noche,30
++Estudio,dia,35
++Estudio,noche,30
+diff --git a/docs/modelo-matematico.md b/docs/modelo-matematico.md
+index 942b1c7..f8bc797 100644
+--- a/docs/modelo-matematico.md
++++ b/docs/modelo-matematico.md
+@@ -47,6 +47,11 @@ atenuación (se ignora que varios caminos en paralelo suman energía).
+ 
+ El ruido de fondo evita niveles negativos sin sentido físico (p. ej. −33 dB).
+ 
++Además de las fuentes (`FuenteSonido`), la actividad de **otras** habitaciones también llega al
++destino: cada habitación *i ≠ j* con actividad de `emiteDba` = E_a aporta `E_a − Att(i → j)`
++(si E_a > 0). La actividad de la propia habitación *j* no cuenta: el límite mide lo que
++transmiten los demás espacios.
++
+ ## 6. Ray tracing (módulo de verificación / reparto por superficie)
+ 
+ La fracción de rayos que cae en la superficie k es S_k / ΣS (campo difuso). Como el reparto
+@@ -90,6 +95,14 @@ y el horario:
+     NO HABITABLE         si L_j > Lim(tipo, h)
+     NO EVALUABLE         si no existe límite para (tipo, h)
+ 
++### Límites de los espacios comunes
++
++`Parqueadero`, `Salon comunal`, `Cuarto de maquinas` y `Pasillo` no tienen límite OMS. Cuando no
++tienen actividad se evalúan con el sector B (zonas residenciales) de `datos/sectores.csv`
++(Res. 0627/2006): 65 dBA de día y 55 dBA de noche. Esos valores son de ruido ambiental por
++zona; usarlos dentro del edificio es una aproximación. `Estudio` usa 35 dBA de día y 30 dBA de
++noche, igual que `Sala`.
++
+ ## 8. Limitaciones asumidas
+ 
+ - R_k se toma a una frecuencia de referencia (500 Hz); no se modela dependencia con la frecuencia.
+@@ -97,3 +110,5 @@ y el horario:
+ - Sin decaimiento por distancia dentro de la habitación de origen (campo difuso).
+ - Valores típicos de R_k (concreto ≈ 50–55 dB, drywall ≈ 30 dB, vidrio doble ≈ 30 dB) son
+   órdenes de magnitud de la literatura: citar la fuente exacta en el informe final.
++- Las actividades no dependen del horario: su ruido se aplica igual de día y de noche.
++- Los límites de los espacios comunes (sector B) son una aproximación, ver sección 7.
+diff --git a/src/acustica/MainEdificioComunal.java b/src/acustica/MainEdificioComunal.java
+new file mode 100644
+index 0000000..3323db0
+--- /dev/null
++++ b/src/acustica/MainEdificioComunal.java
+@@ -0,0 +1,115 @@
++package acustica;
++
++import java.util.List;
++
++import acustica.dominio.Actividad;
++import acustica.dominio.Edificio;
++import acustica.dominio.Habitacion;
++import acustica.dominio.Material;
++import acustica.dominio.Superficie;
++import acustica.normativa.Normativa;
++import acustica.normativa.ResultadoHabitabilidad;
++import acustica.simulacion.Simulador;
++
++/**
++ * Escenario de un edificio con zonas comunes, en tres niveles:
++ *
++ *   Nivel 3:  Salon comunal (FIESTA), encima del Dormitorio 202 y junto al pasillo
++ *   Nivel 2:  Pasillo + Apto 201 (Dormitorio, Estudio) + Apto 202 (Dormitorio)
++ *   Nivel 1:  Parqueadero (VEHICULOS) bajo el Apto 201, Cuarto de maquinas
++ *             (MAQUINARIA) bajo el Dormitorio 202
++ *
++ * El pasillo no tiene actividad: se evalua con el limite del sector B
++ * residencial de datos/sectores.csv (65 dB dia, 55 dB noche).
++ *
++ * Ejecutar desde la raiz del proyecto:
++ *   java -cp out acustica.MainEdificioComunal
++ */
++public class MainEdificioComunal {
++
++    public static void main(String[] args) {
++
++        // ---------- Materiales ----------
++        Material concreto = new Material("Concreto", 55, 0.2);   // muros
++        Material losa = new Material("Losa de concreto", 50, 0.2); // entre niveles
++        Material drywall = new Material("Drywall", 30, 0.1);
++        Material madera = new Material("Puerta de madera", 25, 0.04);
++        Material vidrio = new Material("Vidrio doble", 30, 0.01);
++        Material metal = new Material("Porton metalico", 20, 0.01);
++
++        // ---------- Habitaciones ----------
++        Habitacion parqueadero = new Habitacion("PQ", "Parqueadero", "Parqueadero", 10, 6, 2.5);
++        Habitacion cuartoMaquinas = new Habitacion("CM", "Cuarto de maquinas", "Cuarto de maquinas", 3, 3, 2.5);
++        Habitacion pasillo = new Habitacion("PA", "Pasillo", "Pasillo", 8, 1.5, 2.5);
++        Habitacion dormitorio201 = new Habitacion("D201", "Dormitorio 201", "Dormitorio", 3, 3.5, 2.5);
++        Habitacion estudio201 = new Habitacion("E201", "Estudio 201", "Estudio", 3, 3, 2.5);
++        Habitacion dormitorio202 = new Habitacion("D202", "Dormitorio 202", "Dormitorio", 3, 3.5, 2.5);
++        Habitacion salonComunal = new Habitacion("SC", "Salon comunal", "Salon comunal", 6, 5, 3);
++
++        // ---------- Actividades ----------
++        parqueadero.setActividadPrevista(Actividad.VEHICULOS);
++        cuartoMaquinas.setActividadPrevista(Actividad.MAQUINARIA);
++        salonComunal.setActividadPrevista(Actividad.FIESTA);
++        dormitorio201.setActividadPrevista(Actividad.DORMIR);
++        dormitorio202.setActividadPrevista(Actividad.DORMIR);
++        estudio201.setActividadPrevista(Actividad.ESTUDIAR);
++        // El pasillo no tiene actividad: se evalua con Normativa (sector B).
++
++        Edificio edificio = new Edificio("Edificio con zonas comunes", "OMS + Res. 0627/2006");
++        for (Habitacion h : List.of(parqueadero, cuartoMaquinas, pasillo,
++                dormitorio201, estudio201, dormitorio202, salonComunal)) {
++            edificio.agregarHabitacion(h);
++        }
++
++        // ---------- Superficies ----------
++        // Entre niveles (losas)
++        unir("LOSA-PQ-D201", "losa", 10.5, losa, parqueadero, dormitorio201);
++        unir("LOSA-PQ-E201", "losa", 9.0, losa, parqueadero, estudio201);
++        unir("LOSA-CM-D202", "losa", 9.0, losa, cuartoMaquinas, dormitorio202);
++        unir("LOSA-SC-D202", "losa", 10.5, losa, salonComunal, dormitorio202);
++        // Mismo nivel
++        unir("M-CM-PQ", "muro", 7.5, concreto, cuartoMaquinas, parqueadero);
++        unir("M-D201-E201", "muro", 7.5, drywall, dormitorio201, estudio201);
++        unir("MED-201-202", "muro medianero", 8.75, concreto, dormitorio201, dormitorio202);
++        // Puertas al pasillo y acceso al salon comunal
++        unir("P-PA-D201", "puerta", 2.0, madera, pasillo, dormitorio201);
++        unir("P-PA-E201", "puerta", 2.0, madera, pasillo, estudio201);
++        unir("P-PA-D202", "puerta", 2.0, madera, pasillo, dormitorio202);
++        unir("P-PA-SC", "puerta", 2.0, madera, pasillo, salonComunal);
++        // Fachadas
++        unir("V-D201", "ventana", 1.3, vidrio, dormitorio201, null);
++        unir("V-D202", "ventana", 1.3, vidrio, dormitorio202, null);
++        unir("PORTON", "porton", 12.0, metal, parqueadero, null);
++
++        // ---------- Simulacion ----------
++        Simulador simulador = new Simulador(edificio, new Normativa());
++        System.out.println("=== " + edificio.getNombre() + " (" + edificio.getNormativaAplicable() + ") ===");
++
++        System.out.println("\n--- Evaluacion DIA ---");
++        imprimirResultados(simulador.ejecutar("dia"));
++
++        System.out.println("\n--- Evaluacion NOCHE ---");
++        imprimirResultados(simulador.ejecutar("noche"));
++    }
++
++    /** Crea la superficie y la registra en las habitaciones que separa. */
++    private static void unir(String id, String tipo, double area, Material material,
++            Habitacion a, Habitacion b) {
++        Superficie superficie = (b == null)
++                ? new Superficie(id, tipo, area, material, a)
++                : new Superficie(id, tipo, area, material, a, b);
++        a.agregarSuperficie(superficie);
++        if (b != null) {
++            b.agregarSuperficie(superficie);
++        }
++    }
++
++    private static void imprimirResultados(List<ResultadoHabitabilidad> resultados) {
++        for (ResultadoHabitabilidad resultado : resultados) {
++            System.out.println(resultado);
++        }
++        long habitables = resultados.stream().filter(ResultadoHabitabilidad::isHabitable).count();
++        System.out.println(String.format("Habitables: %d/%d (%.1f%%)", habitables, resultados.size(),
++                resultados.isEmpty() ? 0.0 : 100.0 * habitables / resultados.size()));
++    }
++}
+diff --git a/src/acustica/normativa/Normativa.java b/src/acustica/normativa/Normativa.java
+index dfe8dbd..6ab4845 100644
+--- a/src/acustica/normativa/Normativa.java
++++ b/src/acustica/normativa/Normativa.java
+@@ -4,6 +4,7 @@ import java.util.HashMap;
+ import java.util.Map;
+ 
+ import acustica.config.CargadorDatos;
++import acustica.config.CargadorDatos.SectorRuido;
+ 
+ /**
+  * Guarda los límites de ruido (dB) según el tipo de recinto y el horario.
+@@ -18,6 +19,16 @@ import acustica.config.CargadorDatos;
+  */
+ public class Normativa {
+ 
++    /**
++     * Espacios comunes de un edificio residencial. La OMS no define límites
++     * para ellos, así que se usan los del sector B (zonas residenciales) de
++     * {@code datos/sectores.csv} (Res. 0627/2006). Esos límites son de ruido
++     * ambiental por zona; aplicarlos dentro del edificio es una aproximación.
++     */
++    private static final String[] TIPOS_COMUNES = {
++        "Parqueadero", "Salon comunal", "Cuarto de maquinas", "Pasillo"
++    };
++
+     private final Map<String, Double> limites;
+ 
+     public Normativa() {
+@@ -26,6 +37,33 @@ public class Normativa {
+         if (limites.isEmpty()) {
+             cargarValoresPorDefecto();
+         }
++        cargarLimitesComunes();
++    }
++
++    /**
++     * Asigna a los espacios comunes el límite del sector B residencial
++     * (65 dB de día, 55 dB de noche). Si el CSV no se puede leer, usa esos
++     * mismos valores como respaldo. No pisa límites ya definidos.
++     */
++    private void cargarLimitesComunes() {
++        double dia = 65.0;
++        double noche = 55.0;
++        try {
++            for (SectorRuido sector : CargadorDatos.cargarSectores()) {
++                if (sector.sector.equals("B")
++                        && sector.subsector.toLowerCase().startsWith("zonas residenciales")) {
++                    dia = sector.limiteDiaDb;
++                    noche = sector.limiteNocheDb;
++                    break;
++                }
++            }
++        } catch (RuntimeException sinArchivo) {
++            // se mantienen los valores de respaldo
++        }
++        for (String tipo : TIPOS_COMUNES) {
++            limites.putIfAbsent(construirClave(tipo, "dia"), dia);
++            limites.putIfAbsent(construirClave(tipo, "noche"), noche);
++        }
+     }
+ 
+     /**
+diff --git a/src/acustica/normativa/VerificacionNormativa.java b/src/acustica/normativa/VerificacionNormativa.java
+index 1eb1a6e..fef4b1e 100644
+--- a/src/acustica/normativa/VerificacionNormativa.java
++++ b/src/acustica/normativa/VerificacionNormativa.java
+@@ -57,6 +57,14 @@ public class VerificacionNormativa {
+                 lanzaIllegalArgument(() -> normativa.obtenerLimite("Aula", "noche")));
+         total++; fallos += verificar("Un tipo null lanza IllegalArgumentException",
+                 lanzaIllegalArgument(() -> normativa.obtenerLimite(null, "dia")));
++        total++; fallos += verificar("Espacios comunes usan el sector B de sectores.csv (65 dia / 55 noche)",
++                cercano(normativa.obtenerLimite("Parqueadero", "dia"), 65.0)
++                        && cercano(normativa.obtenerLimite("Pasillo", "noche"), 55.0)
++                        && cercano(normativa.obtenerLimite("Salon comunal", "dia"), 65.0)
++                        && cercano(normativa.obtenerLimite("Cuarto de maquinas", "noche"), 55.0));
++        total++; fallos += verificar("Estudio: 35 dB de dia y 30 dB de noche",
++                cercano(normativa.obtenerLimite("Estudio", "dia"), 35.0)
++                        && cercano(normativa.obtenerLimite("Estudio", "noche"), 30.0));
+         total++; fallos += verificar("La tabla tiene al menos 7 combinaciones",
+                 normativa.getLimites().size() >= 7);
+ 
+diff --git a/src/acustica/simulacion/Simulador.java b/src/acustica/simulacion/Simulador.java
+index 1a4bfa3..1999aca 100644
+--- a/src/acustica/simulacion/Simulador.java
++++ b/src/acustica/simulacion/Simulador.java
+@@ -155,7 +155,8 @@ public class Simulador {
+ 
+     /**
+      * Suma el aporte de todas las fuentes activas del edificio (de cualquier
+-     * habitación) que llegan a la habitación destino, usando el camino de
++     * habitación) y de las actividades de otras habitaciones que llegan a la
++     * habitación destino, usando el camino de
+      * menor atenuación del grafo (Dijkstra).
+      */
+     private double calcularNivelTotal(Habitacion destino, String horario, Grafo grafo) {
+@@ -163,6 +164,15 @@ public class Simulador {
+         aportes.add(destino.getNivelFondo());
+ 
+         for (Habitacion origen : edificio.getHabitaciones()) {
++            // Lo que hace la gente en otra habitación (fiesta, instrumento,
++            // maquinaria...) también llega al destino: emiteDba - atenuación.
++            Actividad actividadOrigen = origen.getActividadPrevista();
++            if (origen != destino && actividadOrigen != null && actividadOrigen.emiteDba > 0) {
++                double atenuacion = Dijkstra.calcular(grafo, origen.getId())
++                        .getAtenuacionHasta(destino.getId());
++                aportes.add(CalculoAcustico.calcularNivelConAtenuacion(
++                        actividadOrigen.emiteDba, atenuacion));
++            }
+             for (FuenteSonido fuente : origen.getFuentes()) {
+                 if (!fuenteActivaEnHorario(fuente, horario)) {
+                     continue;
+diff --git a/src/acustica/simulacion/VerificacionActividades.java b/src/acustica/simulacion/VerificacionActividades.java
+index 006d999..39c1bba 100644
+--- a/src/acustica/simulacion/VerificacionActividades.java
++++ b/src/acustica/simulacion/VerificacionActividades.java
+@@ -66,6 +66,10 @@ public class VerificacionActividades {
+         total++; fallos += verificar("ENTRETENIMIENTO (75) exige menos aislamiento que EJERCICIO (90)",
+                 estadoDeSala(Actividad.ENTRETENIMIENTO, 40) == EstadoHabitabilidad.HABITABLE
+                         && estadoDeSala(Actividad.EJERCICIO, 40) == EstadoHabitabilidad.NO_HABITABLE);
++        total++; fallos += verificar("El dormitorio que duerme junto a un INSTRUMENTO (drywall) recibe su ruido -> NO_HABITABLE",
++                estadoDeDormitorioJuntoA(Actividad.INSTRUMENTO, 30) == EstadoHabitabilidad.NO_HABITABLE);
++        total++; fallos += verificar("El mismo dormitorio con muro de concreto queda como mucho TOLERABLE",
++                estadoDeDormitorioJuntoA(Actividad.INSTRUMENTO, 55) != EstadoHabitabilidad.NO_HABITABLE);
+         total++; fallos += verificar("Alto impacto sin vecinos que exijan nada -> HABITABLE",
+                 estadoAislada(Actividad.INSTRUMENTO) == EstadoHabitabilidad.HABITABLE);
+ 
+@@ -98,6 +102,15 @@ public class VerificacionActividades {
+         return evaluar(dormitorio, sala, rMuro).get(1).getEstado();
+     }
+ 
++    /** Dormitorio (DORMIR) pegado a una sala donde ocurre la actividad dada. */
++    private static EstadoHabitabilidad estadoDeDormitorioJuntoA(Actividad actividadVecina, double rMuro) {
++        Habitacion dormitorio = new Habitacion("D", "Dormitorio", "Dormitorio", 3, 3.5, 2.5);
++        Habitacion sala = new Habitacion("S", "Sala", "Sala", 3, 3.5, 2.5);
++        dormitorio.setActividadPrevista(Actividad.DORMIR);
++        sala.setActividadPrevista(actividadVecina);
++        return evaluar(dormitorio, sala, rMuro).get(0).getEstado();
++    }
++
+     /** Sala con actividad, sin vecinos conectados. */
+     private static EstadoHabitabilidad estadoAislada(Actividad actividad) {
+         Habitacion sala = new Habitacion("S", "Sala", "Sala", 3, 3.5, 2.5);
