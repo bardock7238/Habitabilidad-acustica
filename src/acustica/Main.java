@@ -3,6 +3,7 @@ package acustica;
 import java.util.ArrayList;
 import java.util.List;
 
+import acustica.dominio.Actividad;
 import acustica.dominio.Edificio;
 import acustica.dominio.FuenteSonido;
 import acustica.dominio.Habitacion;
@@ -156,6 +157,23 @@ public class Main {
         System.out.println("\n--- Evaluacion NOCHE ---");
         List<ResultadoHabitabilidad> resultadosNoche = simulador.ejecutar("noche");
         imprimirResultados(resultadosNoche);
+
+        // ---------- 8. Simulacion con actividades (arbol de decision) ----------
+        // Dormitorios: DORMIR (exige silencio). Salas: CONVERSAR (moderada),
+        // salvo la del Apto 102, donde se toca un INSTRUMENTO (alto impacto).
+        // Las actividades de alto impacto se evaluan por su aislamiento hacia
+        // los vecinos (emiteDba - limite del vecino), no por el ruido recibido.
+        for (int i = 0; i < CANTIDAD_APARTAMENTOS; i++) {
+            dormitorios.get(i).setActividadPrevista(Actividad.DORMIR);
+            salas.get(i).setActividadPrevista(Actividad.CONVERSAR);
+        }
+        salas.get(1).setActividadPrevista(Actividad.INSTRUMENTO);
+
+        System.out.println("\n--- Con actividades: DIA ---");
+        imprimirResultados(simulador.ejecutar("dia"));
+
+        System.out.println("\n--- Con actividades: NOCHE ---");
+        imprimirResultados(simulador.ejecutar("noche"));
     }
 
     private static void imprimirResultados(List<ResultadoHabitabilidad> resultados) {

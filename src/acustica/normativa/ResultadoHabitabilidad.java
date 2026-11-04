@@ -57,11 +57,14 @@ public class ResultadoHabitabilidad {
 
     @Override
     public String toString() {
-        return String.format("%s (%s): nivel=%.1f dB, limite=%.1f dB -> %s",
+        String limiteTexto = Double.isInfinite(limiteAplicado)
+                ? "sin limite"
+                : String.format("%.1f dB", limiteAplicado);
+        return String.format("%s (%s): nivel=%.1f dB, limite=%s -> %s",
                 habitacion.getNombre(),
                 habitacion.getTipo(),
                 nivelFinal,
-                limiteAplicado,
+                limiteTexto,
                 estado);
     }
 }
