@@ -57,6 +57,14 @@ public class VerificacionNormativa {
                 lanzaIllegalArgument(() -> normativa.obtenerLimite("Aula", "noche")));
         total++; fallos += verificar("Un tipo null lanza IllegalArgumentException",
                 lanzaIllegalArgument(() -> normativa.obtenerLimite(null, "dia")));
+        total++; fallos += verificar("Espacios comunes usan el sector B de sectores.csv (65 dia / 55 noche)",
+                cercano(normativa.obtenerLimite("Parqueadero", "dia"), 65.0)
+                        && cercano(normativa.obtenerLimite("Pasillo", "noche"), 55.0)
+                        && cercano(normativa.obtenerLimite("Salon comunal", "dia"), 65.0)
+                        && cercano(normativa.obtenerLimite("Cuarto de maquinas", "noche"), 55.0));
+        total++; fallos += verificar("Estudio: 35 dB de dia y 30 dB de noche",
+                cercano(normativa.obtenerLimite("Estudio", "dia"), 35.0)
+                        && cercano(normativa.obtenerLimite("Estudio", "noche"), 30.0));
         total++; fallos += verificar("La tabla tiene al menos 7 combinaciones",
                 normativa.getLimites().size() >= 7);
 

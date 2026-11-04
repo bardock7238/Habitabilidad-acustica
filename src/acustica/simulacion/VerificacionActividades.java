@@ -66,6 +66,10 @@ public class VerificacionActividades {
         total++; fallos += verificar("ENTRETENIMIENTO (75) exige menos aislamiento que EJERCICIO (90)",
                 estadoDeSala(Actividad.ENTRETENIMIENTO, 40) == EstadoHabitabilidad.HABITABLE
                         && estadoDeSala(Actividad.EJERCICIO, 40) == EstadoHabitabilidad.NO_HABITABLE);
+        total++; fallos += verificar("El dormitorio que duerme junto a un INSTRUMENTO (drywall) recibe su ruido -> NO_HABITABLE",
+                estadoDeDormitorioJuntoA(Actividad.INSTRUMENTO, 30) == EstadoHabitabilidad.NO_HABITABLE);
+        total++; fallos += verificar("El mismo dormitorio con muro de concreto queda como mucho TOLERABLE",
+                estadoDeDormitorioJuntoA(Actividad.INSTRUMENTO, 55) != EstadoHabitabilidad.NO_HABITABLE);
         total++; fallos += verificar("Alto impacto sin vecinos que exijan nada -> HABITABLE",
                 estadoAislada(Actividad.INSTRUMENTO) == EstadoHabitabilidad.HABITABLE);
 
@@ -96,6 +100,15 @@ public class VerificacionActividades {
         Habitacion sala = new Habitacion("S", "Sala", "Sala", 3, 3.5, 2.5);
         sala.setActividadPrevista(actividad);
         return evaluar(dormitorio, sala, rMuro).get(1).getEstado();
+    }
+
+    /** Dormitorio (DORMIR) pegado a una sala donde ocurre la actividad dada. */
+    private static EstadoHabitabilidad estadoDeDormitorioJuntoA(Actividad actividadVecina, double rMuro) {
+        Habitacion dormitorio = new Habitacion("D", "Dormitorio", "Dormitorio", 3, 3.5, 2.5);
+        Habitacion sala = new Habitacion("S", "Sala", "Sala", 3, 3.5, 2.5);
+        dormitorio.setActividadPrevista(Actividad.DORMIR);
+        sala.setActividadPrevista(actividadVecina);
+        return evaluar(dormitorio, sala, rMuro).get(0).getEstado();
     }
 
     /** Sala con actividad, sin vecinos conectados. */

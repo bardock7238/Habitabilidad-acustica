@@ -24,7 +24,8 @@ Habitabilidad-acustica/
     │   └── propagacion/            # Grafo, Dijkstra, RayTracing,
     │                               # CalculoAcustico y verificaciones
     ├── config/                     # CargadorDatos (lee los CSV de datos/)
-    └── Main.java                   # Punto de entrada con un edificio de ejemplo
+    ├── Main.java                   # Punto de entrada con un edificio de ejemplo
+    └── MainEdificioComunal.java    # Edificio con parqueadero, salón comunal, etc.
 ```
 
 ## Modelo acústico (resumen)
@@ -53,6 +54,7 @@ Desde la raíz del proyecto:
 rm -rf out
 javac -d out $(find src -name "*.java")
 java -cp out acustica.Main
+java -cp out acustica.MainEdificioComunal   # edificio con zonas comunes
 ```
 
 En Windows (PowerShell):
@@ -76,8 +78,8 @@ Salida esperada:
 ```
 VerificacionGrafo:      16 / 16 verificaciones OK
 VerificacionRayTracing: 21 / 21 verificaciones OK
-VerificacionNormativa:  15 / 15 verificaciones OK
-VerificacionActividades: 14 / 14 verificaciones OK
+VerificacionNormativa:  17 / 17 verificaciones OK
+VerificacionActividades: 16 / 16 verificaciones OK
 ```
 
 Para ver los datos crudos de los CSV:

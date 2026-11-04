@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import acustica.config.CargadorDatos;
+import acustica.config.CargadorDatos.SectorRuido;
 
 /**
  * Guarda los límites de ruido (dB) según el tipo de recinto y el horario.
@@ -18,6 +19,16 @@ import acustica.config.CargadorDatos;
  */
 public class Normativa {
 
+    /**
+     * Espacios comunes de un edificio residencial. La OMS no define límites
+     * para ellos, así que se usan los del sector B (zonas residenciales) de
+     * {@code datos/sectores.csv} (Res. 0627/2006). Esos límites son de ruido
+     * ambiental por zona; aplicarlos dentro del edificio es una aproximación.
+     */
+    private static final String[] TIPOS_COMUNES = {
+        "Parqueadero", "Salon comunal", "Cuarto de maquinas", "Pasillo"
+    };
+
     private final Map<String, Double> limites;
 
     public Normativa() {
@@ -25,6 +36,33 @@ public class Normativa {
         cargarDesdeCSV();
         if (limites.isEmpty()) {
             cargarValoresPorDefecto();
+        }
+        cargarLimitesComunes();
+    }
+
+    /**
+     * Asigna a los espacios comunes el límite del sector B residencial
+     * (65 dB de día, 55 dB de noche). Si el CSV no se puede leer, usa esos
+     * mismos valores como respaldo. No pisa límites ya definidos.
+     */
+    private void cargarLimitesComunes() {
+        double dia = 65.0;
+        double noche = 55.0;
+        try {
+            for (SectorRuido sector : CargadorDatos.cargarSectores()) {
+                if (sector.sector.equals("B")
+                        && sector.subsector.toLowerCase().startsWith("zonas residenciales")) {
+                    dia = sector.limiteDiaDb;
+                    noche = sector.limiteNocheDb;
+                    break;
+                }
+            }
+        } catch (RuntimeException sinArchivo) {
+            // se mantienen los valores de respaldo
+        }
+        for (String tipo : TIPOS_COMUNES) {
+            limites.putIfAbsent(construirClave(tipo, "dia"), dia);
+            limites.putIfAbsent(construirClave(tipo, "noche"), noche);
         }
     }
 

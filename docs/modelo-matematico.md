@@ -47,6 +47,11 @@ atenuación (se ignora que varios caminos en paralelo suman energía).
 
 El ruido de fondo evita niveles negativos sin sentido físico (p. ej. −33 dB).
 
+Además de las fuentes (`FuenteSonido`), la actividad de **otras** habitaciones también llega al
+destino: cada habitación *i ≠ j* con actividad de `emiteDba` = E_a aporta `E_a − Att(i → j)`
+(si E_a > 0). La actividad de la propia habitación *j* no cuenta: el límite mide lo que
+transmiten los demás espacios.
+
 ## 6. Ray tracing (módulo de verificación / reparto por superficie)
 
 La fracción de rayos que cae en la superficie k es S_k / ΣS (campo difuso). Como el reparto
@@ -90,6 +95,14 @@ y el horario:
     NO HABITABLE         si L_j > Lim(tipo, h)
     NO EVALUABLE         si no existe límite para (tipo, h)
 
+### Límites de los espacios comunes
+
+`Parqueadero`, `Salon comunal`, `Cuarto de maquinas` y `Pasillo` no tienen límite OMS. Cuando no
+tienen actividad se evalúan con el sector B (zonas residenciales) de `datos/sectores.csv`
+(Res. 0627/2006): 65 dBA de día y 55 dBA de noche. Esos valores son de ruido ambiental por
+zona; usarlos dentro del edificio es una aproximación. `Estudio` usa 35 dBA de día y 30 dBA de
+noche, igual que `Sala`.
+
 ## 8. Limitaciones asumidas
 
 - R_k se toma a una frecuencia de referencia (500 Hz); no se modela dependencia con la frecuencia.
@@ -97,3 +110,5 @@ y el horario:
 - Sin decaimiento por distancia dentro de la habitación de origen (campo difuso).
 - Valores típicos de R_k (concreto ≈ 50–55 dB, drywall ≈ 30 dB, vidrio doble ≈ 30 dB) son
   órdenes de magnitud de la literatura: citar la fuente exacta en el informe final.
+- Las actividades no dependen del horario: su ruido se aplica igual de día y de noche.
+- Los límites de los espacios comunes (sector B) son una aproximación, ver sección 7.

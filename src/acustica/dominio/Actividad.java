@@ -24,7 +24,13 @@ public enum Actividad {
     CONVERSAR(Categoria.MODERADA, 65),
     ENTRETENIMIENTO(Categoria.ALTO_IMPACTO, 75),
     INSTRUMENTO(Categoria.ALTO_IMPACTO, 85),
-    EJERCICIO(Categoria.ALTO_IMPACTO, 90);
+    EJERCICIO(Categoria.ALTO_IMPACTO, 90),
+    JUGAR_NINOS(Categoria.ALTO_IMPACTO, 75),
+    REUNION_SOCIAL(Categoria.ALTO_IMPACTO, 80),
+    FIESTA(Categoria.ALTO_IMPACTO, 90),
+    OBRAS(Categoria.ALTO_IMPACTO, 95),
+    VEHICULOS(Categoria.ALTO_IMPACTO, 75),
+    MAQUINARIA(Categoria.ALTO_IMPACTO, 85);
 
     /** Cómo se evalúa la actividad en el árbol de decisión. */
     public enum Categoria {

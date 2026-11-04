@@ -155,7 +155,8 @@ public class Simulador {
 
     /**
      * Suma el aporte de todas las fuentes activas del edificio (de cualquier
-     * habitación) que llegan a la habitación destino, usando el camino de
+     * habitación) y de las actividades de otras habitaciones que llegan a la
+     * habitación destino, usando el camino de
      * menor atenuación del grafo (Dijkstra).
      */
     private double calcularNivelTotal(Habitacion destino, String horario, Grafo grafo) {
@@ -163,6 +164,15 @@ public class Simulador {
         aportes.add(destino.getNivelFondo());
 
         for (Habitacion origen : edificio.getHabitaciones()) {
+            // Lo que hace la gente en otra habitación (fiesta, instrumento,
+            // maquinaria...) también llega al destino: emiteDba - atenuación.
+            Actividad actividadOrigen = origen.getActividadPrevista();
+            if (origen != destino && actividadOrigen != null && actividadOrigen.emiteDba > 0) {
+                double atenuacion = Dijkstra.calcular(grafo, origen.getId())
+                        .getAtenuacionHasta(destino.getId());
+                aportes.add(CalculoAcustico.calcularNivelConAtenuacion(
+                        actividadOrigen.emiteDba, atenuacion));
+            }
             for (FuenteSonido fuente : origen.getFuentes()) {
                 if (!fuenteActivaEnHorario(fuente, horario)) {
                     continue;
