@@ -28,6 +28,7 @@ public class Habitacion {
     private Actividad actividadPrevista;
     private double nivelRuido;
     private boolean habitable;
+    private int piso = 1;                 // 1 = primer piso; negativo = sótano
 
     public Habitacion(String id, String nombre, String tipo, double ancho, double largo, double alto) {
         this.id = id;
@@ -118,6 +119,15 @@ public class Habitacion {
     /** Vista de solo lectura de las fuentes registradas. */
     public List<FuenteSonido> getFuentes() {
         return Collections.unmodifiableList(fuentes);
+    }
+
+    /** Piso en el que está la habitación (1 = primer piso, 0 o negativo = sótanos). */
+    public int getPiso() {
+        return piso;
+    }
+
+    public void setPiso(int piso) {
+        this.piso = piso;
     }
 
     public double getNivelFondo() {

@@ -9,7 +9,9 @@ import acustica.dominio.Material;
 import acustica.dominio.Superficie;
 import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
+import acustica.simulacion.ReporteHabitabilidad;
 import acustica.simulacion.Simulador;
+import acustica.visual.GraficadorArboles;
 
 /**
  * Escenario de un edificio con zonas comunes, en tres niveles:
@@ -83,13 +85,22 @@ public class MainEdificioComunal {
 
         // ---------- Simulacion ----------
         Simulador simulador = new Simulador(edificio, new Normativa());
+        GraficadorArboles grafico = new GraficadorArboles(edificio.getNombre());
         System.out.println("=== " + edificio.getNombre() + " (" + edificio.getNormativaAplicable() + ") ===");
 
         System.out.println("\n--- Evaluacion DIA ---");
-        imprimirResultados(simulador.ejecutar("dia"));
+        List<ResultadoHabitabilidad> resultadosDia = simulador.ejecutar("dia");
+        imprimirResultados(resultadosDia);
+        ReporteHabitabilidad.imprimir(resultadosDia);
+        grafico.agregarEscenario("Evaluación DÍA", resultadosDia);
 
         System.out.println("\n--- Evaluacion NOCHE ---");
-        imprimirResultados(simulador.ejecutar("noche"));
+        List<ResultadoHabitabilidad> resultadosNoche = simulador.ejecutar("noche");
+        imprimirResultados(resultadosNoche);
+        ReporteHabitabilidad.imprimir(resultadosNoche);
+        grafico.agregarEscenario("Evaluación NOCHE", resultadosNoche);
+
+        grafico.guardarYAbrir("out/arboles.html");
     }
 
     /** Crea la superficie y la registra en las habitaciones que separa. */
