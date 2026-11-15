@@ -52,7 +52,7 @@ public class IndiceHabitabilidad {
         // (\uffff), para que los empates en dB queden fuera (mayor ESTRICTO).
         Habitacion marca = new Habitacion("\uffff", "", "", 1, 1, 1);
         ResultadoHabitabilidad limite =
-                new ResultadoHabitabilidad(marca, dB, 0.0, EstadoHabitabilidad.HABITABLE);
+                ResultadoHabitabilidad.propio(marca, dB, 0.0, EstadoHabitabilidad.HABITABLE);
         return arbol.mayoresQue(limite);
     }
 

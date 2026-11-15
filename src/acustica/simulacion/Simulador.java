@@ -62,10 +62,10 @@ public class Simulador {
                         ? EstadoHabitabilidad.HABITABLE
                         : EstadoHabitabilidad.NO_HABITABLE;
                 destino.setHabitable(esHabitable(estado));
-                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, limite, estado));
+                resultados.add(ResultadoHabitabilidad.propio(destino, nivelTotal, limite, estado));
             } catch (IllegalArgumentException sinLimite) {
                 destino.setHabitable(false);
-                resultados.add(new ResultadoHabitabilidad(destino, nivelTotal, Double.NaN,
+                resultados.add(ResultadoHabitabilidad.propio(destino, nivelTotal, Double.NaN,
                         EstadoHabitabilidad.NO_EVALUABLE));
             }
         }
@@ -86,6 +86,7 @@ public class Simulador {
         EstadoHabitabilidad estado;
         double nivelReportado = nivelTotal;
         double limiteReportado;
+        boolean nivelDeVecino = false;
 
         switch (actividad.categoria) {
             case EXIGE_SILENCIO:
@@ -120,6 +121,7 @@ public class Simulador {
                         peorExceso = exceso;
                         nivelReportado = nivelEnVecina;
                         limiteReportado = limiteVecina;
+                        nivelDeVecino = true;
                     }
                 }
                 if (peorExceso > 0) {
@@ -129,7 +131,10 @@ public class Simulador {
         }
 
         habitacion.setHabitable(esHabitable(estado));
-        return new ResultadoHabitabilidad(habitacion, nivelReportado, limiteReportado, estado);
+        return nivelDeVecino
+                ? ResultadoHabitabilidad.conVecino(habitacion, nivelTotal, nivelReportado,
+                        limiteReportado, estado)
+                : ResultadoHabitabilidad.propio(habitacion, nivelTotal, limiteReportado, estado);
     }
 
     /**
