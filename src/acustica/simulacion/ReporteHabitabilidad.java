@@ -13,8 +13,13 @@ import acustica.normativa.ResultadoHabitabilidad;
 /**
  * Reporte que usa los dos árboles:
  *
- *  - Árbol AVL (IndiceHabitabilidad): ordena TODAS las habitaciones del
- *    edificio por exceso de ruido y muestra si cada una es habitable o no.
+ *  - Árbol AVL (IndiceHabitabilidad): cada nodo es el resultado de UNA
+ *    habitación, ordenado por exceso de ruido (nivel comparado - límite), no
+ *    por nivel absoluto. Ese orden es el que hace que el peor caso sea el
+ *    máximo y que "las que incumplen" se puedan pedir por umbral. Los
+ *    resultados NO_EVALUABLE y los que no tienen límite valen -infinito: van
+ *    al inicio de la lista, nunca son peor caso, y se etiquetan distinto
+ *    porque significan cosas distintas.
  *  - Árbol rojo-negro (PlanMejora): para cada habitación NO habitable,
  *    guarda sus posibles soluciones ordenadas por costo.
  */
@@ -30,22 +35,25 @@ public final class ReporteHabitabilidad {
     public static void imprimir(List<ResultadoHabitabilidad> resultados) {
         IndiceHabitabilidad indice = new IndiceHabitabilidad(resultados);
 
-        // El AVL ordena de menor a mayor exceso; se muestra de más ruidosa a más silenciosa.
+        // El AVL ordena de menor a mayor exceso; se muestra al revés, peor caso primero.
         List<ResultadoHabitabilidad> ordenados = new ArrayList<>(indice.ordenados());
         Collections.reverse(ordenados);
 
-        System.out.println("\n  [Arbol AVL] Edificio ordenado por exceso de ruido (de mas a menos ruidosa)");
+        System.out.println("\n  [Arbol AVL] Edificio ordenado por exceso de ruido (peor caso primero)");
+        System.out.println("  Cada nodo es una habitacion: nivel recibido y exceso contra su limite.");
+        System.out.println("  En alto impacto el exceso es del vecino mas afectado; se muestra ese nivel.");
+        System.out.println("  'sin limite' y 'no evaluable' valen -infinito: van primero y nunca son peor caso.");
         System.out.println(String.format("  Habitaciones: %d | altura del arbol: %d | balanceado: %s",
                 indice.tamano(), indice.altura(), indice.estaBalanceado() ? "si" : "NO"));
 
         int posicion = 1;
         for (ResultadoHabitabilidad r : ordenados) {
-            String exceso = Double.isInfinite(r.getExceso())
-                    ? "     -   "
-                    : String.format("%+7.1f dB", r.getExceso());
-            System.out.println(String.format("  %2d. %-28s nivel %5.1f dB | exceso %s | %s",
-                    posicion++, r.getHabitacion().getNombre(), r.getNivelFinal(), exceso,
-                    etiqueta(r.getEstado())));
+            String vecino = r.usaNivelDeVecino()
+                    ? String.format(" | vecino %5.1f dB", r.getNivelFinal())
+                    : "                  "; // deja alineada la columna de exceso
+            System.out.println(String.format("  %2d. %-28s recibido %5.1f dB%s | exceso %12s | %s",
+                    posicion++, r.getHabitacion().getNombre(), r.getNivelRecibido(), vecino,
+                    r.etiquetaExceso(), etiqueta(r.getEstado())));
         }
 
         // Rojo-negro: solo para las NO habitables

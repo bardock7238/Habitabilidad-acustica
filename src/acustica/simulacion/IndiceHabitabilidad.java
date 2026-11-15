@@ -11,15 +11,30 @@ import acustica.normativa.ResultadoHabitabilidad;
 
 /**
  * Índice de los resultados de UNA ejecución del Simulador, guardado
- * en un árbol AVL ordenado por exceso de ruido
- * (nivelFinal - limiteAplicado, de menor a mayor).
+ * en un árbol AVL ordenado por exceso de ruido.
  *
- * Con eso, el peor caso es el máximo del árbol y las habitaciones que no
- * cumplen (exceso > 0) se obtienen sin recorrer todas. Si dos habitaciones
- * tienen el mismo exceso, el desempate es el id de la habitación.
+ * QUÉ ES UN NODO: un {@link ResultadoHabitabilidad}, es decir una habitación
+ * con su nivel recibido, el nivel contra el que se midió el exceso y su
+ * estado. El AVL no guarda habitaciones sueltas: guarda el resultado completo,
+ * así que de cada nodo se pueden leer el recibido, el límite y el estado.
  *
- * Crear un índice por horario: los resultados de "dia" y "noche" son listas
- * distintas.
+ * POR QUÉ SE ORDENA POR EXCESO Y NO POR NIVEL: el nivel absoluto no dice si
+ * una habitación incumple. Una sala con 58 dB puede cumplir su límite de 65 y
+ * un dormitorio con 42 dB incumplir el de 30. El exceso
+ * ({@link ResultadoHabitabilidad#getExceso()}, nivel comparado - límite) sí:
+ * positivo = incumple, negativo = margen. Ordenar por exceso deja el peor caso
+ * en el máximo del árbol (O(log n)) y permite pedir solo los que superan un
+ * umbral sin recorrer todas las habitaciones.
+ *
+ * LOS DOS -INFINITO: un resultado NO_EVALUABLE (no hay límite definido) y uno
+ * con límite +infinito (nada que exigir) valen ambos -infinito, así que caen
+ * al extremo izquierdo del árbol y nunca compiten por el peor caso. Significan
+ * cosas distintas: el primero no se pudo evaluar, el segundo no tiene límite
+ * que cumplir. Dentro de ese grupo el orden lo decide solo el id, no el ruido;
+ * los nodos de la izquierda no son "los más tranquilos".
+ *
+ * Si dos habitaciones tienen el mismo exceso, el desempate es el id. Crear un
+ * índice por horario: los resultados de "dia" y "noche" son listas distintas.
  */
 public class IndiceHabitabilidad {
 
@@ -52,15 +67,20 @@ public class IndiceHabitabilidad {
         // (\uffff), para que los empates en dB queden fuera (mayor ESTRICTO).
         Habitacion marca = new Habitacion("\uffff", "", "", 1, 1, 1);
         ResultadoHabitabilidad limite =
-                new ResultadoHabitabilidad(marca, dB, 0.0, EstadoHabitabilidad.HABITABLE);
+                ResultadoHabitabilidad.propio(marca, dB, 0.0, EstadoHabitabilidad.HABITABLE);
         return arbol.mayoresQue(limite);
     }
 
-    /** Estructura del AVL lista para dibujar (verde = habitable, amarillo = tolerable, rojo = no habitable). */
+    /**
+     * Estructura del AVL lista para dibujar. Cada nodo es una habitación y
+     * muestra: nombre arriba, "nivel recibido · exceso" abajo; el tooltip
+     * lleva el resultado completo (incluido el nivel del vecino cuando aplica).
+     * Color: verde = habitable, amarillo = tolerable, rojo = no habitable,
+     * gris = no evaluable.
+     */
     public NodoVisual aNodoVisual() {
         return arbol.aNodoVisual(r -> {
-            String exceso = Double.isInfinite(r.getExceso()) ? "sin limite"
-                    : String.format("%.1f dB (%+.1f)", r.getNivelFinal(), r.getExceso());
+            String exceso = String.format("rec %.1f · %s", r.getNivelRecibido(), r.etiquetaExceso());
             String color;
             String texto = "#ffffff";
             switch (r.getEstado()) {
