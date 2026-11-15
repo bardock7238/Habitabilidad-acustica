@@ -1,9 +1,9 @@
 package acustica.mejora;
 
-import java.util.List;
-
 import acustica.estructuras.ArbolRojinegro;
 import acustica.estructuras.NodoVisual;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Soluciones candidatas para UNA habitación no habitable, guardadas en un
@@ -36,39 +36,106 @@ public class PlanMejora {
         return soluciones.eliminar(solucion);
     }
 
-    /** La solución más barata de todas, sin importar si alcanza. */
+    
+    /**
+     * La candidata más barata del árbol.
+     * Puede ser una estimación sin verificar.
+     */
     public Solucion masBarata() {
         return soluciones.minimo();
     }
 
-    /** La solución más barata que por sí sola reduce al menos el exceso; null si ninguna alcanza. */
+    /**
+     * La solución verificada más barata,
+     * aunque todavía no alcance el límite.
+     */
+    public Solucion masBarataVerificada() {
+        return soluciones.primeroQue(
+                Solucion::isVerificada);
+    }
+
+    /**
+     * La solución verificada más barata
+     * que cubre el exceso de esta habitación.
+     */
     public Solucion masBarataQueCubra() {
         return masBarataQueCubra(excesoDb);
     }
 
-    /** La solución más barata que reduce al menos db; null si ninguna alcanza. */
+    /**
+     * Busca la solución verificada de menor costo
+     * que reduzca al menos la cantidad indicada.
+     *
+     * Devuelve null si ninguna lo consigue.
+     */
     public Solucion masBarataQueCubra(double db) {
-        return soluciones.primeroQue(s -> s.getReduccionDb() >= db);
+        return soluciones.primeroQue(
+                s -> s.isVerificada()
+                        && s.getReduccionDb() >= db);
     }
 
-   /**
-     * La solución que más reduce entre las que no superan el presupuesto
-     * (costo TOTAL a largo plazo, incluyendo mantenimiento); null si ninguna
-     * entra en el presupuesto.
+
+
+    /**
+     * Encuentra la solución verificada que más reduce
+     * el ruido sin superar el presupuesto.
+     *
+     * El presupuesto considera el costo total,
+     * incluyendo mantenimiento.
+     *
+     * Devuelve null si no existe una opción
+     * verificada dentro del presupuesto.
      */
     public Solucion mejorConPresupuesto(double presupuesto) {
+
         Solucion mejor = null;
-        for (Solucion s : soluciones.tomarMientras(x -> x.getCostoTotal() <= presupuesto)) {
-            if (mejor == null || s.getReduccionDb() > mejor.getReduccionDb()) {
+
+        for (Solucion s : soluciones.tomarMientras(
+                x -> x.getCostoTotal() <= presupuesto)) {
+
+            // No recomendar soluciones no verificadas.
+            if (!s.isVerificada()) {
+                continue;
+            }
+
+            if (mejor == null
+                    || s.getReduccionDb() > mejor.getReduccionDb()) {
                 mejor = s;
             }
         }
+
         return mejor;
     }
+
 
     /** Todas las candidatas, de la más barata a la más cara. */
     public List<Solucion> todas() {
         return soluciones.enOrden();
+    }
+
+
+    /**
+     * Devuelve únicamente las soluciones verificadas,
+     * ordenadas de menor a mayor costo total.
+     */
+    public List<Solucion> verificadas() {
+        List<Solucion> lista = new ArrayList<>();
+
+        for (Solucion s : soluciones.enOrden()) {
+            if (s.isVerificada()) {
+                lista.add(s);
+            }
+        }
+
+        return lista;
+    }
+
+    /**
+     * Cantidad de soluciones comprobadas
+     * mediante una simulación.
+     */
+    public int cantidadVerificadas() {
+        return verificadas().size();
     }
 
     public int cantidad() {
@@ -83,14 +150,26 @@ public class PlanMejora {
         return excesoDb;
     }
 
-    /** Estructura del rojo-negro lista para dibujar (clave: costo total). */
+    
+    /**
+     * Representación visual del árbol rojo-negro.
+     *
+     * Clave: costo total de la solución.
+     *
+     * [V] = verificada mediante simulación.
+     * [E] = estimación pendiente de verificar.
+     */
     public NodoVisual aNodoVisual() {
         return soluciones.aNodoVisual(s -> new NodoVisual(
                 String.format("costo %.0f", s.getCostoTotal()),
-                nombreCorto(s.getTipo()) + " " + s.getId(),
+                (s.isVerificada() ? "[V] " : "[E] ")
+                        + nombreCorto(s.getTipo())
+                        + " " + s.getId(),
                 s.toString(),
-                "#161616", "#ffffff"));
+                "#161616",
+                "#ffffff"));
     }
+
 
     private static String nombreCorto(Solucion.Tipo tipo) {
         switch (tipo) {

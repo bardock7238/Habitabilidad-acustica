@@ -4,7 +4,6 @@ import acustica.dominio.Edificio;
 import acustica.dominio.Habitacion;
 import acustica.dominio.Material;
 import acustica.dominio.Superficie;
-
 import java.util.List;
 /**
  * Verificación manual de las Tareas 3.1 (Grafo) y 3.2 (Dijkstra).
@@ -101,6 +100,28 @@ public class VerificacionGrafo {
         Dijkstra.Resultado r2 = Dijkstra.calcular(grafo2, "H1");
         List<String> camino2 = r2.reconstruirCamino("H2");
 
+        
+        List<String> superficies2 =
+                r2.reconstruirSuperficies("H2");
+
+        total++;
+        fallos += verificar(
+                "Dijkstra identifica las dos puertas del camino",
+                superficies2.equals(List.of("PU1", "PU2")));
+        total++;
+        fallos += verificar(
+                "Dijkstra devuelve PU1 para llegar al pasillo",
+                r2.reconstruirSuperficies("P1")
+                        .equals(List.of("PU1")));
+        total++;
+        fallos += verificar(
+                "Dijkstra no devuelve superficies para el origen",
+                r2.reconstruirSuperficies("H1").isEmpty());
+        total++;
+        fallos += verificar(
+                "Dijkstra no devuelve superficies para un destino inexistente",
+                r2.reconstruirSuperficies("NO_EXISTE").isEmpty());
+
         total++; fallos += verificar("Existe camino de H1 a H2 (via el pasillo)",
                 !camino2.isEmpty());
         total++; fallos += verificar("El camino de H1 a H2 pasa por el Pasillo",
@@ -124,6 +145,12 @@ public class VerificacionGrafo {
                 estanConectados(grafo3, "R1", Grafo.EXTERIOR));
 
         Dijkstra.Resultado r3 = Dijkstra.calcular(grafo3, Grafo.EXTERIOR);
+        
+        total++;
+        fallos += verificar(
+                "Dijkstra identifica la fachada desde EXTERIOR",
+                r3.reconstruirSuperficies("R1")
+                        .equals(List.of("FV1")));
         total++; fallos += verificar("Atenuacion EXTERIOR->Recepcion = atenuacion de la fachada",
                 cercano(r3.getAtenuacionHasta("R1"), fachadaVia.calcularAtenuacionHacia(recepcion)));
 

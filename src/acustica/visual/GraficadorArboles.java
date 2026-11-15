@@ -1,5 +1,13 @@
 package acustica.visual;
 
+import acustica.estructuras.NodoVisual;
+import acustica.mejora.GeneradorSoluciones;
+import acustica.mejora.PlanMejora;
+import acustica.mejora.Solucion;
+import acustica.normativa.EstadoHabitabilidad;
+import acustica.normativa.ResultadoHabitabilidad;
+import acustica.simulacion.IndiceHabitabilidad;
+import acustica.simulacion.Simulador;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,13 +19,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import acustica.estructuras.NodoVisual;
-import acustica.mejora.GeneradorSoluciones;
-import acustica.mejora.PlanMejora;
-import acustica.normativa.EstadoHabitabilidad;
-import acustica.normativa.ResultadoHabitabilidad;
-import acustica.simulacion.IndiceHabitabilidad;
 
 /**
  * Dibuja los árboles como imágenes (SVG) dentro de una página HTML que se
@@ -54,11 +55,35 @@ public class GraficadorArboles {
         this.titulo = titulo;
     }
 
+    
     /**
-     * Agrega un escenario (por ejemplo "Noche"): su árbol AVL y, por cada
-     * habitación NO habitable, su árbol rojo-negro de soluciones.
+     * Versión anterior: conserva compatibilidad
+     * con los escenarios sin simulador.
      */
-    public void agregarEscenario(String nombre, List<ResultadoHabitabilidad> resultados) {
+    public void agregarEscenario(
+            String nombre,
+            List<ResultadoHabitabilidad> resultados) {
+
+        agregarEscenario(nombre, resultados, null, null);
+    }
+
+    /**
+     * Agrega un escenario y genera sus árboles.
+     *
+     * Si recibe un simulador y un horario,
+     * verifica las mejoras de materiales.
+     */
+    public void agregarEscenario(
+            String nombre,
+            List<ResultadoHabitabilidad> resultados,
+            Simulador simulador,
+            String horario) {
+
+        if ((simulador == null) != (horario == null)) {
+            throw new IllegalArgumentException(
+                    "Debes proporcionar simulador y horario juntos");
+        }
+
         IndiceHabitabilidad indice = new IndiceHabitabilidad(resultados);
 
         List<ResultadoHabitabilidad> ordenados = new ArrayList<>(indice.ordenados());
@@ -89,7 +114,16 @@ public class GraficadorArboles {
 
         boolean hay = false;
         for (ResultadoHabitabilidad r : ordenados) {
-            PlanMejora plan = GeneradorSoluciones.generar(r, HORIZONTE_ANIOS);
+
+            PlanMejora plan;
+            if (simulador != null) {
+                plan = GeneradorSoluciones.generar(
+                        r, HORIZONTE_ANIOS, simulador, horario);
+            } else {
+                plan = GeneradorSoluciones.generar(
+                        r, HORIZONTE_ANIOS);
+            }
+
             if (plan == null) {
                 continue;
             }
@@ -99,15 +133,53 @@ public class GraficadorArboles {
                         .append(chip("#161616", "Nodo negro / NIL"))
                         .append("<span class=\"nota\">Ordenado por costo total a ")
                         .append(HORIZONTE_ANIOS)
-                        .append(" años (incluye mantenimiento): las más baratas a la izquierda. "
-                                + "Pase el mouse sobre un nodo para ver la solución.</span></p>\n");
+                        .append(" años (incluye mantenimiento): "
+                                + "las más baratas a la izquierda. "
+                                + "[V] significa verificada mediante simulación "
+                                + "y [E] significa estimada. "
+                                + "Una solución verificada no necesariamente "
+                                + "cubre todo el exceso acústico. "
+                                + "Pase el mouse sobre un nodo para "
+                                + "ver sus detalles.</span></p>\n");
                 hay = true;
             }
-            cuerpo.append("<h4>").append(esc(r.getHabitacion().getNombre())).append(" &mdash; exceso de ")
-                    .append(String.format("%.1f", plan.getExcesoDb())).append(" dB, ")
-                    .append(plan.cantidad()).append(" soluciones candidatas</h4>\n");
+            
+            cuerpo.append("<h4>")
+                    .append(esc(r.getHabitacion().getNombre()))
+                    .append(" &mdash; exceso de ")
+                    .append(String.format("%.1f", plan.getExcesoDb()))
+                    .append(" dB, ")
+                    .append(plan.cantidad())
+                    .append(" soluciones candidatas, ")
+                    .append(plan.cantidadVerificadas())
+                    .append(" verificadas</h4>\n");
+
             cuerpo.append("<div class=\"arbol\">")
-                    .append(dibujar(plan.aNodoVisual(), ANCHO_RN)).append("</div>\n");
+                    .append(dibujar(plan.aNodoVisual(), ANCHO_RN))
+                    .append("</div>\n");
+
+            // Buscar la solución más económica que fue
+            // verificada y que cubre el exceso.
+            Solucion suficiente = plan.masBarataQueCubra();
+
+            if (suficiente != null) {
+
+                cuerpo.append("<p class=\"nota\">")
+                        .append("<strong>Solución verificada "
+                                + "que cubre el exceso:</strong> ")
+                        .append(esc(suficiente.getDescripcion()))
+                        .append(" (reducción: ")
+                        .append(String.format(
+                                "%.1f", suficiente.getReduccionDb()))
+                        .append(" dB).</p>\n");
+
+            } else {
+
+                cuerpo.append("<p class=\"nota\">")
+                        .append("Ninguna solución verificada "
+                                + "cubre el exceso por sí sola.")
+                        .append("</p>\n");
+            }
         }
         if (!hay) {
             cuerpo.append("<p class=\"nota\">Todas las habitaciones son habitables o tolerables: "
