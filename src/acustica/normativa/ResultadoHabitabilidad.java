@@ -92,7 +92,10 @@ public class ResultadoHabitabilidad {
     /**
      * Cuántos dB se pasa (positivo) o le sobran (negativo) respecto al límite.
      * Para resultados NO_EVALUABLE devuelve {@link Double#NEGATIVE_INFINITY},
-     * de modo que no compitan por el "peor caso" del edificio.
+     * de modo que no compitan por el "peor caso" del edificio. El mismo
+     * -infinito sale de un límite +infinito (habitación sin nada que exigir):
+     * el orden es igual, pero el significado no, y por eso la etiqueta los
+     * distingue.
      */
     public double getExceso() {
         return estado == EstadoHabitabilidad.NO_EVALUABLE
@@ -100,15 +103,30 @@ public class ResultadoHabitabilidad {
                 : nivelFinal - limiteAplicado;
     }
 
+    /**
+     * Texto del exceso para consola y HTML: "no evaluable", "sin limite" o
+     * "+8,2 dB". Centralizado para que las salidas no diverjan y para no
+     * imprimir "-Infinity".
+     */
+    public String etiquetaExceso() {
+        if (estado == EstadoHabitabilidad.NO_EVALUABLE) {
+            return "no evaluable";
+        }
+        double exceso = getExceso();
+        return Double.isInfinite(exceso) ? "sin limite" : String.format("%+.1f dB", exceso);
+    }
+
     @Override
     public String toString() {
-        String limiteTexto = Double.isInfinite(limiteAplicado)
-                ? "sin limite"
-                : String.format("%.1f dB", limiteAplicado);
-        return String.format("%s (%s): nivel=%.1f dB, limite=%s -> %s",
+        boolean sinLimite = Double.isInfinite(limiteAplicado) || Double.isNaN(limiteAplicado);
+        String limiteTexto = sinLimite ? "sin limite" : String.format("%.1f dB", limiteAplicado);
+        String nivelTexto = nivelDeVecino
+                ? String.format("vecino=%.1f dB, recibido=%.1f dB", nivelFinal, nivelRecibido)
+                : String.format("nivel=%.1f dB", nivelRecibido);
+        return String.format("%s (%s): %s, limite=%s -> %s",
                 habitacion.getNombre(),
                 habitacion.getTipo(),
-                nivelFinal,
+                nivelTexto,
                 limiteTexto,
                 estado);
     }

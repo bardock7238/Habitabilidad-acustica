@@ -62,7 +62,7 @@ public class GraficadorArboles {
         IndiceHabitabilidad indice = new IndiceHabitabilidad(resultados);
 
         List<ResultadoHabitabilidad> ordenados = new ArrayList<>(indice.ordenados());
-        Collections.reverse(ordenados); // de más a menos ruidosa
+        Collections.reverse(ordenados); // de mayor a menor exceso (peor caso primero)
 
         long noHabitables = ordenados.stream()
                 .filter(r -> r.getEstado() == EstadoHabitabilidad.NO_HABITABLE).count();
@@ -75,9 +75,15 @@ public class GraficadorArboles {
         cuerpo.append("<h3>Árbol AVL: el edificio ordenado por exceso de ruido</h3>\n");
         cuerpo.append("<p class=\"leyenda\">")
                 .append(chip("#2e9e5b", "HABITABLE")).append(chip("#f2c230", "TOLERABLE"))
-                .append(chip("#d64545", "NO HABITABLE"))
-                .append("<span class=\"nota\">La insignia azul es el factor de equilibrio (fe). "
-                        + "Izquierda = menos ruido, derecha = más ruido.</span></p>\n");
+                .append(chip("#d64545", "NO HABITABLE")).append(chip("#8a8f98", "NO EVALUABLE"))
+                .append("<span class=\"nota\">Cada nodo es una habitación: arriba el nombre, abajo "
+                        + "el nivel que recibe y su exceso (nivel comparado &minus; límite), no el nivel "
+                        + "absoluto: un nivel alto puede cumplir su límite y uno bajo incumplirlo, el "
+                        + "exceso sí dice si se pasa. Izquierda = menos exceso, derecha = más exceso, "
+                        + "así el peor caso queda a la derecha. En alto impacto el exceso se mide en el "
+                        + "vecino más afectado; el tooltip lo detalla. «Sin límite» y «no evaluable» valen "
+                        + "&minus;infinito: caen a la izquierda y nunca son peor caso. La insignia azul "
+                        + "es el factor de equilibrio (fe).</span></p>\n");
         cuerpo.append("<div class=\"arbol\">")
                 .append(dibujar(indice.aNodoVisual(), ANCHO_AVL)).append("</div>\n");
 
