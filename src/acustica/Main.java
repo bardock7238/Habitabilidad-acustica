@@ -11,7 +11,9 @@ import acustica.dominio.Material;
 import acustica.dominio.Superficie;
 import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
+import acustica.simulacion.ReporteHabitabilidad;
 import acustica.simulacion.Simulador;
+import acustica.visual.GraficadorArboles;
 
 /**
  * Punto de entrada del programa (Tarea 5.2).
@@ -169,11 +171,21 @@ public class Main {
         }
         salas.get(1).setActividadPrevista(Actividad.INSTRUMENTO);
 
+        GraficadorArboles grafico = new GraficadorArboles(edificio.getNombre());
+
         System.out.println("\n--- Con actividades: DIA ---");
-        imprimirResultados(simulador.ejecutar("dia"));
+        List<ResultadoHabitabilidad> actividadesDia = simulador.ejecutar("dia");
+        imprimirResultados(actividadesDia);
+        ReporteHabitabilidad.imprimir(actividadesDia);
+        grafico.agregarEscenario("Con actividades: DÍA", actividadesDia);
 
         System.out.println("\n--- Con actividades: NOCHE ---");
-        imprimirResultados(simulador.ejecutar("noche"));
+        List<ResultadoHabitabilidad> actividadesNoche = simulador.ejecutar("noche");
+        imprimirResultados(actividadesNoche);
+        ReporteHabitabilidad.imprimir(actividadesNoche);
+        grafico.agregarEscenario("Con actividades: NOCHE", actividadesNoche);
+
+        grafico.guardarYAbrir("out/arboles.html");
     }
 
     private static void imprimirResultados(List<ResultadoHabitabilidad> resultados) {
