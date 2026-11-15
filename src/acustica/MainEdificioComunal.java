@@ -1,17 +1,21 @@
 package acustica;
 
-import java.util.List;
-
 import acustica.dominio.Actividad;
 import acustica.dominio.Edificio;
 import acustica.dominio.Habitacion;
 import acustica.dominio.Material;
 import acustica.dominio.Superficie;
+import acustica.mejora.GeneradorSoluciones;
+import acustica.mejora.PlanMejora;
+import acustica.mejora.Solucion;
+import acustica.normativa.EstadoHabitabilidad;
 import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
 import acustica.simulacion.ReporteHabitabilidad;
 import acustica.simulacion.Simulador;
 import acustica.visual.GraficadorArboles;
+import java.util.List;
+
 
 /**
  * Escenario de un edificio con zonas comunes, en tres niveles:
@@ -88,21 +92,237 @@ public class MainEdificioComunal {
         GraficadorArboles grafico = new GraficadorArboles(edificio.getNombre());
         System.out.println("=== " + edificio.getNombre() + " (" + edificio.getNormativaAplicable() + ") ===");
 
+        
         System.out.println("\n--- Evaluacion DIA ---");
-        List<ResultadoHabitabilidad> resultadosDia = simulador.ejecutar("dia");
+
+        List<ResultadoHabitabilidad> resultadosDia =
+                simulador.ejecutar("dia");
+
         imprimirResultados(resultadosDia);
-        ReporteHabitabilidad.imprimir(resultadosDia);
-        grafico.agregarEscenario("Evaluación DÍA", resultadosDia);
+
+        // Ahora el reporte recibe el simulador y el horario:
+        // puede verificar realmente las mejoras de material.
+        ReporteHabitabilidad.imprimir(
+                resultadosDia, simulador, "dia");
+
+        grafico.agregarEscenario(
+                "Evaluación DÍA",
+                resultadosDia,
+                simulador,
+                "dia");
+
+        // Pruebas de aceptación del issue #40.
+        verificarIssue40Dia(
+                simulador, edificio, resultadosDia);
 
         System.out.println("\n--- Evaluacion NOCHE ---");
-        List<ResultadoHabitabilidad> resultadosNoche = simulador.ejecutar("noche");
+
+        List<ResultadoHabitabilidad> resultadosNoche =
+                simulador.ejecutar("noche");
+
         imprimirResultados(resultadosNoche);
-        ReporteHabitabilidad.imprimir(resultadosNoche);
-        grafico.agregarEscenario("Evaluación NOCHE", resultadosNoche);
+
+        ReporteHabitabilidad.imprimir(
+                resultadosNoche, simulador, "noche");
+
+        grafico.agregarEscenario(
+                "Evaluación NOCHE",
+                resultadosNoche,
+                simulador,
+                "noche");
+
 
         grafico.guardarYAbrir("out/arboles.html");
     }
 
+    
+
+    /**
+     * Pruebas de aceptación del issue #40.
+     *
+     * Comprueba:
+     * 1. Losa del salón +12 dB: 7/7 habitables.
+     * 2. Puerta del salón: no resuelve todo el edificio.
+     * 3. Ventana D202: no resuelve todo el edificio.
+     * 4. El rojo-negro no marca esas dos superficies
+     *    como soluciones suficientes.
+     *
+     * Todos los cambios de material son temporales.
+     */
+    private static void verificarIssue40Dia(
+            Simulador simulador,
+            Edificio edificio,
+            List<ResultadoHabitabilidad> resultadosBase) {
+
+        System.out.println(
+                "\n=== PRUEBAS DE ACEPTACION ISSUE #40 ===");
+
+        String[] superficies = {
+            "LOSA-SC-D202",
+            "P-PA-SC",
+            "V-D202"
+        };
+
+        // ------------------------------------------
+        // 1. Simular cada modificación temporalmente
+        // ------------------------------------------
+
+        for (String id : superficies) {
+
+            Superficie objetivo = null;
+
+            for (Habitacion habitacion :
+                    edificio.getHabitaciones()) {
+
+                for (Superficie superficie :
+                        habitacion.getSuperficies()) {
+
+                    if (id.equals(superficie.getId())) {
+                        objetivo = superficie;
+                        break;
+                    }
+                }
+
+                if (objetivo != null) {
+                    break;
+                }
+            }
+
+            if (objetivo == null) {
+                throw new IllegalStateException(
+                        "No se encontro la superficie: " + id);
+            }
+
+            Material original = objetivo.getMaterial();
+            long habitables;
+
+            try {
+                Material mejorado = new Material(
+                        original.getNombre() + " (+12 dB prueba)",
+                        original.getIndiceReduccionSonora() + 12.0,
+                        original.getEspesor());
+
+                objetivo.setMaterial(mejorado);
+
+                List<ResultadoHabitabilidad> prueba =
+                        simulador.ejecutar("dia");
+
+                habitables = prueba.stream()
+                        .filter(ResultadoHabitabilidad::isHabitable)
+                        .count();
+
+                System.out.println(
+                        "  " + id + " (+12 dB): "
+                                + habitables + "/"
+                                + prueba.size() + " habitables");
+
+            } finally {
+
+                // Siempre devolver el material original.
+                objetivo.setMaterial(original);
+
+                // Restaurar también el estado del simulador.
+                simulador.ejecutar("dia");
+            }
+
+            if ("LOSA-SC-D202".equals(id)) {
+
+                if (habitables != 7) {
+                    throw new IllegalStateException(
+                            "ERROR: la losa +12 dB no produjo 7/7");
+                }
+
+            } else {
+
+                if (habitables == 7) {
+                    throw new IllegalStateException(
+                            "ERROR: " + id
+                                    + " aparece resolviendo todo el edificio");
+                }
+            }
+        }
+
+        // ------------------------------------------
+        // 2. Revisar las soluciones del rojo-negro
+        // ------------------------------------------
+
+        boolean losaVerificadaYSuficiente = false;
+
+        for (ResultadoHabitabilidad resultado :
+                resultadosBase) {
+
+            if (resultado.getEstado()
+                    != EstadoHabitabilidad.NO_HABITABLE) {
+                continue;
+            }
+
+            PlanMejora plan = GeneradorSoluciones.generar(
+                    resultado, 10, simulador, "dia");
+
+            if (plan == null) {
+                throw new IllegalStateException(
+                        "Falta el plan de mejora de "
+                                + resultado.getHabitacion().getId());
+            }
+
+            for (Solucion solucion : plan.todas()) {
+
+                // Una estimación nunca se acepta como
+                // solución comprobada.
+                if (!solucion.isVerificada()) {
+                    continue;
+                }
+
+                boolean cubreExceso =
+                        solucion.getReduccionDb()
+                                >= plan.getExcesoDb();
+
+                String descripcion =
+                        solucion.getDescripcion();
+
+                // Controles negativos.
+                if (cubreExceso
+                        && (descripcion.contains("P-PA-SC")
+                            || descripcion.contains("V-D202"))) {
+
+                    throw new IllegalStateException(
+                            "ERROR: falsa solucion suficiente: "
+                                    + descripcion);
+                }
+
+                // Control positivo para el salón comunal.
+                if (cubreExceso
+                        && resultado.getHabitacion()
+                                .getId().equals("SC")
+                        && descripcion.contains("LOSA-SC-D202")) {
+
+                    losaVerificadaYSuficiente = true;
+                }
+            }
+        }
+
+        if (!losaVerificadaYSuficiente) {
+            throw new IllegalStateException(
+                    "ERROR: el rojo-negro no reconoce "
+                            + "la losa del salon como solucion "
+                            + "verificada y suficiente");
+        }
+
+        System.out.println(
+                "  [OK] Losa del salon verificada en el rojo-negro");
+
+        System.out.println(
+                "  [OK] Puerta del salon y ventana D202 "
+                        + "sin falsos cumplimientos");
+
+        System.out.println(
+                "  [OK] Materiales originales restaurados");
+
+        System.out.println(
+                "=== ISSUE #40: PRUEBAS SUPERADAS ===");
+    }
+
+    
     /** Crea la superficie y la registra en las habitaciones que separa. */
     private static void unir(String id, String tipo, double area, Material material,
             Habitacion a, Habitacion b) {

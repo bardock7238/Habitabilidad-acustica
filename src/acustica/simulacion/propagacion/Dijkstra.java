@@ -28,11 +28,19 @@ public class Dijkstra {
     public static class Resultado {
         private final Map<String, Double> atenuacionAcumulada;
         private final Map<String, String> predecesor;
+        private final Map<String, String> superficiePredecesora;
 
-        private Resultado(Map<String, Double> atenuacionAcumulada, Map<String, String> predecesor) {
-            this.atenuacionAcumulada = atenuacionAcumulada;
-            this.predecesor = predecesor;
-        }
+       
+    private Resultado(
+            Map<String, Double> atenuacionAcumulada,
+            Map<String, String> predecesor,
+            Map<String, String> superficiePredecesora) {
+
+        this.atenuacionAcumulada = atenuacionAcumulada;
+        this.predecesor = predecesor;
+        this.superficiePredecesora = superficiePredecesora;
+    }
+
 
         /**
          * Atenuación acumulada mínima en dB desde el origen hasta el nodo dado.
@@ -63,6 +71,37 @@ public class Dijkstra {
             Collections.reverse(camino);
             return camino;
         }
+
+        /**
+         * Reconstruye los IDs de las superficies atravesadas
+         * en el camino de menor atenuación hasta el destino.
+         *
+         * Devuelve una lista vacía si no existe camino
+         * o si el destino es el propio origen.
+         */
+        public List<String> reconstruirSuperficies(String destino) {
+            if (!atenuacionAcumulada.containsKey(destino)) {
+                return new ArrayList<>();
+            }
+
+            List<String> superficies = new ArrayList<>();
+            String actual = destino;
+
+            while (predecesor.containsKey(actual)) {
+                String superficieId =
+                        superficiePredecesora.get(actual);
+
+                if (superficieId != null) {
+                    superficies.add(superficieId);
+                }
+
+                actual = predecesor.get(actual);
+            }
+
+            Collections.reverse(superficies);
+            return superficies;
+        }
+
 
         /** Copia inmutable de la atenuación acumulada por nodo. */
         public Map<String, Double> getAtenuacionAcumulada() {
@@ -103,6 +142,7 @@ public class Dijkstra {
 
         Map<String, Double> atenuacionAcumulada = new HashMap<>();
         Map<String, String> predecesor = new HashMap<>();
+        Map<String, String> superficiePredecesora = new HashMap<>();
         Set<String> visitado = new HashSet<>();
 
         PriorityQueue<NodoConAtenuacion> pendientes = new PriorityQueue<>();
@@ -121,15 +161,23 @@ public class Dijkstra {
                 String vecino = arista.getDestino();
                 double nuevaAtenuacion = actual.atenuacion + arista.getPeso();
                 double atenuacionPrevia = atenuacionAcumulada.getOrDefault(vecino, Double.POSITIVE_INFINITY);
-
+                
                 if (nuevaAtenuacion < atenuacionPrevia) {
                     atenuacionAcumulada.put(vecino, nuevaAtenuacion);
                     predecesor.put(vecino, actual.id);
-                    pendientes.add(new NodoConAtenuacion(vecino, nuevaAtenuacion));
+
+                    superficiePredecesora.put(
+                            vecino, arista.getSuperficieId());
+
+                    pendientes.add(
+                            new NodoConAtenuacion(vecino, nuevaAtenuacion));
                 }
             }
         }
 
-        return new Resultado(atenuacionAcumulada, predecesor);
-    }
+        return new Resultado(
+                atenuacionAcumulada,
+                predecesor,
+                superficiePredecesora);
+        }
 }

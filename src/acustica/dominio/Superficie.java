@@ -20,7 +20,7 @@ public class Superficie {
     private final String id;
     private final String tipo;
     private final double area;
-    private final Material material;
+    private Material material;
     private final Habitacion habitacion1;
     private final Habitacion habitacion2;
 
@@ -86,6 +86,20 @@ public class Superficie {
     public Material getMaterial() {
         return material;
     }
+    
+    /**
+     * Cambia el material de la superficie.
+     * Permite probar mejoras acústicas temporalmente.
+     */
+    public void setMaterial(Material nuevoMaterial) {
+        if (nuevoMaterial == null) {
+            throw new IllegalArgumentException(
+                "La superficie necesita un material"
+            );
+        }
+        this.material = nuevoMaterial;
+    }
+
 
     public Habitacion getHabitacion1() {
         return habitacion1;
