@@ -52,6 +52,15 @@ public class MainEdificioComunal {
         Habitacion dormitorio202 = new Habitacion("D202", "Dormitorio 202", "Dormitorio", 3, 3.5, 2.5);
         Habitacion salonComunal = new Habitacion("SC", "Salon comunal", "Salon comunal", 6, 5, 3);
 
+        // ---------- Pisos ----------
+        parqueadero.setPiso(1);
+        cuartoMaquinas.setPiso(1);
+        pasillo.setPiso(2);
+        dormitorio201.setPiso(2);
+        estudio201.setPiso(2);
+        dormitorio202.setPiso(2);
+        salonComunal.setPiso(3);
+
         // ---------- Actividades ----------
         parqueadero.setActividadPrevista(Actividad.VEHICULOS);
         cuartoMaquinas.setActividadPrevista(Actividad.MAQUINARIA);

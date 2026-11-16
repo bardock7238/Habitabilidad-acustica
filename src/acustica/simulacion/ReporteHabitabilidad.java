@@ -124,6 +124,40 @@ public final class ReporteHabitabilidad {
         }
 
         // ==========================================
+        // 1b. ÁRBOL AVL POR PISOS
+        // ==========================================
+
+        IndiceHabitabilidadPorPisos porPisos =
+                new IndiceHabitabilidadPorPisos(resultados);
+
+        System.out.println(
+                "\n  [Arbol AVL por pisos] Peor caso de cada piso");
+
+        for (int piso : porPisos.pisos()) {
+
+            ResultadoHabitabilidad peor =
+                    porPisos.indiceDe(piso).peorCaso();
+
+            System.out.println(String.format(
+                    "  Piso %d: habitaciones %d | peor caso %-20s "
+                            + "recibido %5.1f dB | exceso %12s | %s",
+                    piso,
+                    porPisos.indiceDe(piso).tamano(),
+                    peor.getHabitacion().getNombre(),
+                    peor.getNivelRecibido(),
+                    peor.etiquetaExceso(),
+                    etiqueta(peor.getEstado())));
+        }
+
+        Integer pisoCritico = porPisos.pisoMasCritico();
+
+        if (pisoCritico != null) {
+
+            System.out.println(
+                    "  Piso mas critico: piso " + pisoCritico);
+        }
+
+        // ==========================================
         // 2. ÁRBOL ROJO-NEGRO: SOLUCIONES
         // ==========================================
 
