@@ -234,6 +234,18 @@ public class GeneradorSoluciones {
                 horizonteAnios,
                 false));
 
+        // Con simulador: agrega las propuestas de "cambiar de piso",
+        // que se verifican volviendo a simular.
+        if (simulador != null) {
+            ReubicadorPorPisos.agregarPropuestas(
+                    plan,
+                    resultado,
+                    simulador.getEdificio(),
+                    simulador,
+                    horario,
+                    horizonteAnios);
+        }
+
         return plan;
     }
 

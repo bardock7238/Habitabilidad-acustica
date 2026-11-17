@@ -72,6 +72,10 @@ public class Main {
                     "F-" + numeroApto, "pared exterior", 9.5, concreto, sala);
             sala.agregarSuperficie(fachadaSala);
 
+            // Los seis apartamentos estan en fila, en el mismo piso.
+            dormitorio.setPiso(1);
+            sala.setPiso(1);
+
             dormitorios.add(dormitorio);
             salas.add(sala);
             edificio.agregarHabitacion(dormitorio);
