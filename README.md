@@ -71,6 +71,7 @@ java -cp out acustica.simulacion.propagacion.VerificacionGrafo
 java -cp out acustica.simulacion.propagacion.VerificacionRayTracing
 java -cp out acustica.normativa.VerificacionNormativa
 java -cp out acustica.simulacion.VerificacionActividades
+java -cp out acustica.estructuras.VerificacionArboles
 ```
 
 Salida esperada:
@@ -80,7 +81,10 @@ VerificacionGrafo:      16 / 16 verificaciones OK
 VerificacionRayTracing: 21 / 21 verificaciones OK
 VerificacionNormativa:  17 / 17 verificaciones OK
 VerificacionActividades: 16 / 16 verificaciones OK
+VerificacionArboles:    17 / 17 verificaciones OK
 ```
+
+`VerificacionArboles` termina con código de salida 1 si alguna verificación falla.
 
 Para ver los datos crudos de los CSV:
 
