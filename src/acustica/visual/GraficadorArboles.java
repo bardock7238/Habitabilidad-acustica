@@ -8,6 +8,7 @@ import acustica.mejora.Solucion;
 import acustica.normativa.EstadoHabitabilidad;
 import acustica.normativa.ResultadoHabitabilidad;
 import acustica.simulacion.IndiceHabitabilidad;
+import acustica.simulacion.IndicePorPisoYNivel;
 import acustica.simulacion.Simulador;
 import java.awt.Desktop;
 import java.io.IOException;
@@ -40,9 +41,15 @@ public class GraficadorArboles {
 
     private static final int HORIZONTE_ANIOS = 10;
 
+    /** Umbral y rango de ejemplo para las consultas del índice B+. */
+    private static final double NIVEL_ALTO_DB = 55.0;
+    private static final double RANGO_DESDE_DB = 30.0;
+    private static final double RANGO_HASTA_DB = 55.0;
+
     // Medidas del dibujo (en píxeles)
     private static final double ANCHO_AVL = 168;
     private static final double ANCHO_RN = 128;
+    private static final double ANCHO_BMAS = 170;
     private static final double ANCHO_NIL = 34;
     private static final double ALTO_NODO = 46;
     private static final double ALTO_NIL = 22;
@@ -113,6 +120,87 @@ public class GraficadorArboles {
                         + "es el factor de equilibrio (fe).</span></p>\n");
         cuerpo.append("<div class=\"arbol\">")
                 .append(dibujar(indice.aNodoVisual(), ANCHO_AVL)).append("</div>\n");
+
+        // ==========================================
+        // ÁRBOL B+ POR PISO Y NIVEL
+        // ==========================================
+
+        IndicePorPisoYNivel porPisoYNivel =
+                new IndicePorPisoYNivel(resultados);
+
+        cuerpo.append("<h3>Árbol B+ por piso y nivel de ruido</h3>\n");
+        cuerpo.append("<p class=\"leyenda\">")
+                .append(chip("#3b5b92", "Nodo interno"))
+                .append(chip("#2e7d6b", "Hoja"))
+                .append("<span class=\"nota\">Clave (piso, nivel recibido, habitación): "
+                        + "el nivel es el que recibe el espacio, no el del vecino de una "
+                        + "actividad de alto impacto. El id desempata habitaciones del mismo "
+                        + "piso con igual nivel. Las hojas están enlazadas de izquierda a "
+                        + "derecha, así las consultas por rango recorren pocas hojas.</span></p>\n");
+
+        if (porPisoYNivel.estaVacio()) {
+
+            cuerpo.append("<p class=\"nota\">No hay habitaciones para indexar.</p>\n");
+
+        } else {
+
+            cuerpo.append("<p class=\"resumen\">")
+                    .append(porPisoYNivel.tamano())
+                    .append(" habitaciones indexadas. Altura del B+: ")
+                    .append(porPisoYNivel.altura())
+                    .append(". Invariantes: ")
+                    .append(porPisoYNivel.cumpleInvariantes() ? "válidas" : "INVÁLIDAS")
+                    .append(".</p>\n");
+
+            cuerpo.append("<div class=\"arbol\">")
+                    .append(dibujarBMas(porPisoYNivel.aNodoVisual(), ANCHO_BMAS))
+                    .append("</div>\n");
+
+            cuerpo.append("<h4>Consultas del índice B+</h4>\n");
+            cuerpo.append("<p class=\"nota\">")
+                    .append("Umbral de ejemplo: ")
+                    .append(String.format("%.1f", NIVEL_ALTO_DB))
+                    .append(" dB; rango de ejemplo: [")
+                    .append(String.format("%.1f", RANGO_DESDE_DB))
+                    .append(", ")
+                    .append(String.format("%.1f", RANGO_HASTA_DB))
+                    .append("] dB.</p>\n");
+            cuerpo.append("<ul>\n");
+
+            for (int piso : porPisoYNivel.pisos()) {
+
+                List<ResultadoHabitabilidad> delPiso =
+                        porPisoYNivel.habitacionesDePiso(piso);
+                List<ResultadoHabitabilidad> altos =
+                        porPisoYNivel.queSuperanNivel(piso, NIVEL_ALTO_DB);
+                List<ResultadoHabitabilidad> enRango =
+                        porPisoYNivel.enRangoDeNiveles(
+                                piso, RANGO_DESDE_DB, RANGO_HASTA_DB);
+
+                cuerpo.append("<li><strong>Piso ")
+                        .append(piso)
+                        .append("</strong> (")
+                        .append(delPiso.size())
+                        .append(" habitaciones)<br>\n")
+                        .append("Todas, por nivel: ")
+                        .append(resumenNiveles(delPiso))
+                        .append("<br>\n")
+                        .append("Superan ")
+                        .append(String.format("%.1f", NIVEL_ALTO_DB))
+                        .append(" dB: ")
+                        .append(resumenNiveles(altos))
+                        .append("<br>\n")
+                        .append("Entre ")
+                        .append(String.format("%.1f", RANGO_DESDE_DB))
+                        .append(" y ")
+                        .append(String.format("%.1f", RANGO_HASTA_DB))
+                        .append(" dB: ")
+                        .append(resumenNiveles(enRango))
+                        .append("</li>\n");
+            }
+
+            cuerpo.append("</ul>\n");
+        }
 
         // Un árbol rojo-negro global por escenario/horario.
         ClasificadorDificultad clasificador =
@@ -344,6 +432,7 @@ public class GraficadorArboles {
         double y;           // borde superior
         double anchoIzq;    // espacio reservado a la izquierda del nodo
         double anchoDer;    // espacio reservado a la derecha del nodo
+        double anchoTotal;  // ancho del subárbol (solo árboles con N hijos)
     }
 
     private String dibujar(NodoVisual raiz, double anchoNodo) {
@@ -366,6 +455,106 @@ public class GraficadorArboles {
         nodos(raiz, pos, sb, anchoNodo);
         sb.append("</svg>");
         return sb.toString();
+    }
+
+    /**
+     * Dibuja un árbol con N hijos por nodo (el B+). A diferencia del AVL y del
+     * rojo-negro, un nodo interno del B+ puede tener más de dos hijos; el
+     * padre se centra sobre el conjunto de sus hijos y cada subárbol reserva
+     * su propio ancho para que no se solapen.
+     */
+    private String dibujarBMas(NodoVisual raiz, double anchoNodo) {
+        if (raiz == null) {
+            return "<p class=\"nota\">(árbol vacío)</p>";
+        }
+        Map<NodoVisual, Pos> pos = new HashMap<>();
+        double anchoArbol = medirNario(raiz, anchoNodo, pos);
+        colocarNario(raiz, MARGEN, 0, pos);
+
+        double ancho = anchoArbol + 2 * MARGEN;
+        double alto = (profundidadNario(raiz) - 1) * ALTO_NIVEL + ALTO_NODO + 2 * MARGEN;
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format(java.util.Locale.ROOT,
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"%.0f\" height=\"%.0f\" viewBox=\"0 0 %.0f %.0f\">\n",
+                ancho, alto, ancho, alto));
+        aristasNarias(raiz, pos, sb);
+        nodosNarios(raiz, pos, sb, anchoNodo);
+        sb.append("</svg>");
+        return sb.toString();
+    }
+
+    /** Ancho de un nodo B+: crece con el texto porque puede tener varias claves. */
+    private double anchoDeBMas(NodoVisual n, double anchoNodo) {
+        if (n.isNil()) {
+            return ANCHO_NIL;
+        }
+        int largo = n.getLinea1() == null ? 0 : n.getLinea1().length();
+        double porTexto = 22 + 6.6 * Math.min(largo, 42);
+        return Math.max(anchoNodo, porTexto);
+    }
+
+    /** Mide el subárbol de un árbol N-ario y deja el ancho total en cada Pos. */
+    private double medirNario(NodoVisual n, double anchoNodo, Map<NodoVisual, Pos> pos) {
+        Pos p = new Pos();
+        pos.put(n, p);
+        double propio = anchoDeBMas(n, anchoNodo) + SEPARACION;
+        double hijos = 0;
+        for (NodoVisual hijo : n.getHijos()) {
+            hijos += medirNario(hijo, anchoNodo, pos);
+        }
+        p.anchoTotal = Math.max(propio, hijos);
+        p.anchoIzq = p.anchoTotal / 2;
+        p.anchoDer = p.anchoTotal / 2;
+        return p.anchoTotal;
+    }
+
+    /** Coloca el padre centrado sobre sus hijos, de izquierda a derecha. */
+    private void colocarNario(NodoVisual n, double inicio, int nivel, Map<NodoVisual, Pos> pos) {
+        Pos p = pos.get(n);
+        p.x = inicio + p.anchoTotal / 2;
+        p.y = MARGEN + nivel * ALTO_NIVEL;
+
+        double hijos = 0;
+        for (NodoVisual hijo : n.getHijos()) {
+            hijos += pos.get(hijo).anchoTotal;
+        }
+
+        double cursor = p.x - hijos / 2;
+        for (NodoVisual hijo : n.getHijos()) {
+            colocarNario(hijo, cursor, nivel + 1, pos);
+            cursor += pos.get(hijo).anchoTotal;
+        }
+    }
+
+    private int profundidadNario(NodoVisual n) {
+        if (n == null) {
+            return 0;
+        }
+        int maxima = 0;
+        for (NodoVisual hijo : n.getHijos()) {
+            maxima = Math.max(maxima, profundidadNario(hijo));
+        }
+        return 1 + maxima;
+    }
+
+    private void aristasNarias(NodoVisual n, Map<NodoVisual, Pos> pos, StringBuilder sb) {
+        Pos p = pos.get(n);
+        for (NodoVisual hijo : n.getHijos()) {
+            Pos h = pos.get(hijo);
+            sb.append(String.format(java.util.Locale.ROOT,
+                    "<line x1=\"%.1f\" y1=\"%.1f\" x2=\"%.1f\" y2=\"%.1f\" stroke=\"%s\" stroke-width=\"1.6\"/>\n",
+                    p.x, p.y + altoDe(n), h.x, h.y, "#5d6470"));
+            aristasNarias(hijo, pos, sb);
+        }
+    }
+
+    private void nodosNarios(NodoVisual n, Map<NodoVisual, Pos> pos, StringBuilder sb, double anchoNodo) {
+        Pos p = pos.get(n);
+        dibujarNodo(n, p, sb, anchoDeBMas(n, anchoNodo), altoDe(n), 42, 30);
+        for (NodoVisual hijo : n.getHijos()) {
+            nodosNarios(hijo, pos, sb, anchoNodo);
+        }
     }
 
     private double anchoDe(NodoVisual n, double anchoNodo) {
@@ -433,8 +622,19 @@ public class GraficadorArboles {
 
     private void nodos(NodoVisual n, Map<NodoVisual, Pos> pos, StringBuilder sb, double anchoNodo) {
         Pos p = pos.get(n);
-        double w = anchoDe(n, anchoNodo);
-        double h = altoDe(n);
+        dibujarNodo(n, p, sb, anchoDe(n, anchoNodo), altoDe(n), 22, 26);
+
+        if (n.getIzq() != null) {
+            nodos(n.getIzq(), pos, sb, anchoNodo);
+        }
+        if (n.getDer() != null) {
+            nodos(n.getDer(), pos, sb, anchoNodo);
+        }
+    }
+
+    /** Dibuja la caja, sus textos y la insignia de un nodo ya posicionado. */
+    private void dibujarNodo(NodoVisual n, Pos p, StringBuilder sb, double w, double h,
+            int maxLinea1, int maxLinea2) {
         double x = p.x - w / 2;
         java.util.Locale l = java.util.Locale.ROOT;
 
@@ -451,12 +651,13 @@ public class GraficadorArboles {
             double y1 = n.getLinea2() == null ? p.y + h / 2 + 5 : p.y + 20;
             sb.append(String.format(l,
                     "<text x=\"%.1f\" y=\"%.1f\" text-anchor=\"middle\" font-size=\"13\" font-weight=\"700\" "
-                            + "fill=\"%s\">%s</text>\n", p.x, y1, n.getColorTexto(), esc(cortar(n.getLinea1(), 22))));
+                            + "fill=\"%s\">%s</text>\n", p.x, y1, n.getColorTexto(),
+                    esc(cortar(n.getLinea1(), maxLinea1))));
             if (n.getLinea2() != null) {
                 sb.append(String.format(l,
                         "<text x=\"%.1f\" y=\"%.1f\" text-anchor=\"middle\" font-size=\"11\" "
                                 + "fill=\"%s\">%s</text>\n", p.x, p.y + 36, n.getColorTexto(),
-                        esc(cortar(n.getLinea2(), 26))));
+                        esc(cortar(n.getLinea2(), maxLinea2))));
             }
         }
         if (n.getInsignia() != null) {
@@ -470,18 +671,30 @@ public class GraficadorArboles {
                     esc(n.getInsignia())));
         }
         sb.append("</g>\n");
-
-        if (n.getIzq() != null) {
-            nodos(n.getIzq(), pos, sb, anchoNodo);
-        }
-        if (n.getDer() != null) {
-            nodos(n.getDer(), pos, sb, anchoNodo);
-        }
     }
 
     // ------------------------------------------------------------------
     // Utilidades de texto
     // ------------------------------------------------------------------
+
+    /** Lista compacta de habitaciones con su nivel recibido para el HTML. */
+    private static String resumenNiveles(List<ResultadoHabitabilidad> resultados) {
+        if (resultados.isEmpty()) {
+            return "ninguna";
+        }
+        StringBuilder texto = new StringBuilder();
+        for (int i = 0; i < resultados.size(); i++) {
+            if (i > 0) {
+                texto.append(", ");
+            }
+            ResultadoHabitabilidad r = resultados.get(i);
+            texto.append(esc(r.getHabitacion().getNombre()))
+                    .append(" (")
+                    .append(String.format("%.1f", r.getNivelRecibido()))
+                    .append(" dB)");
+        }
+        return texto.toString();
+    }
 
     private static String chip(String color, String texto) {
         return "<span class=\"chip\"><i style=\"background:" + color + "\"></i>" + esc(texto) + "</span>";

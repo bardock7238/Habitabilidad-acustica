@@ -21,6 +21,9 @@ Habitabilidad-acustica/
     │                               # EstadoHabitabilidad
     ├── simulacion/
     │   ├── Simulador.java          # Ejecuta la evaluación y arma el reporte
+    │   ├── IndiceHabitabilidad.java
+    │   ├── IndiceHabitabilidadPorPisos.java
+    │   ├── IndicePorPisoYNivel.java # Índice B+ (piso, nivel, habitación)
     │   └── propagacion/            # Grafo, Dijkstra, RayTracing,
     │                               # CalculoAcustico y verificaciones
     ├── config/                     # CargadorDatos (lee los CSV de datos/)
@@ -45,6 +48,23 @@ Habitabilidad-acustica/
 
 El detalle completo, con las hipótesis y limitaciones, está en
 [`docs/modelo-matematico.md`](docs/modelo-matematico.md).
+
+## Índice B+ por piso y nivel
+
+`IndicePorPisoYNivel` guarda los resultados de una simulación en un
+`ArbolBMas` con clave compuesta `(piso, nivelRecibido, habitacionId)`.
+Se usa `nivelRecibido` (el ruido que llega al espacio) y no `nivelFinal`
+(el del vecino en una actividad de alto impacto); el id desempata dos
+habitaciones del mismo piso con igual nivel.
+
+Consultas principales:
+
+- `habitacionesDePiso(piso)`: todas las habitaciones de un piso.
+- `queSuperanNivel(piso, nivel)`: las que están estrictamente por encima.
+- `enRangoDeNiveles(piso, desde, hasta)`: las de un rango inclusivo.
+
+El reporte por consola (`ReporteHabitabilidad`) muestra estas consultas y
+`GraficadorArboles` dibuja el B+ en una sección nueva de `arboles.html`.
 
 ## Cómo compilar y ejecutar
 
@@ -72,16 +92,18 @@ java -cp out acustica.simulacion.propagacion.VerificacionRayTracing
 java -cp out acustica.normativa.VerificacionNormativa
 java -cp out acustica.simulacion.VerificacionActividades
 java -cp out acustica.estructuras.VerificacionArboles
+java -cp out acustica.simulacion.VerificacionIndicePorPisoYNivel
 ```
 
 Salida esperada:
 
 ```
-VerificacionGrafo:      16 / 16 verificaciones OK
+VerificacionGrafo:      21 / 21 verificaciones OK
 VerificacionRayTracing: 21 / 21 verificaciones OK
 VerificacionNormativa:  17 / 17 verificaciones OK
 VerificacionActividades: 16 / 16 verificaciones OK
 VerificacionArboles:    17 / 17 verificaciones OK
+VerificacionIndicePorPisoYNivel: 17 / 17 verificaciones OK
 ```
 
 `VerificacionArboles` termina con código de salida 1 si alguna verificación falla.
