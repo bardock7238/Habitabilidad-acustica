@@ -1,6 +1,7 @@
 package acustica.visual;
 
 import acustica.estructuras.NodoVisual;
+import acustica.mejora.ClasificadorDificultad;
 import acustica.mejora.GeneradorSoluciones;
 import acustica.mejora.PlanMejora;
 import acustica.mejora.Solucion;
@@ -28,6 +29,7 @@ import java.util.Map;
  *    (habitable), amarillo (tolerable) o rojo (no habitable).
  *  - Árbol rojo-negro de soluciones de cada habitación NO habitable: nodos
  *    rojos y negros, con las hojas NIL.
+ *  - Árbol rojo-negro global de facilidad económica por escenario.
  *
  * Uso:
  *   GraficadorArboles g = new GraficadorArboles("Mi edificio");
@@ -112,6 +114,12 @@ public class GraficadorArboles {
         cuerpo.append("<div class=\"arbol\">")
                 .append(dibujar(indice.aNodoVisual(), ANCHO_AVL)).append("</div>\n");
 
+        // Un árbol rojo-negro global por escenario/horario.
+        ClasificadorDificultad clasificador =
+                new ClasificadorDificultad();
+
+        // Construimos los dibujos individuales por separado para mostrarlos después.
+        StringBuilder individuales = new StringBuilder();
         boolean hay = false;
         for (ResultadoHabitabilidad r : ordenados) {
 
@@ -127,9 +135,14 @@ public class GraficadorArboles {
             if (plan == null) {
                 continue;
             }
+
+            // Agregar la habitación NO_HABITABLE al árbol global.
+            // Reutilizamos el plan que ya fue generado.
+            clasificador.registrar(r, plan);
+
             if (!hay) {
-                cuerpo.append("<h3>Árboles rojo-negro: soluciones para las habitaciones NO habitables</h3>\n");
-                cuerpo.append("<p class=\"leyenda\">").append(chip("#c62828", "Nodo rojo"))
+                individuales.append("<h3>Árboles rojo-negro individuales: soluciones por habitación (desplegables)</h3>\n");
+                individuales.append("<p class=\"leyenda\">").append(chip("#c62828", "Nodo rojo"))
                         .append(chip("#161616", "Nodo negro / NIL"))
                         .append("<span class=\"nota\">Ordenado por costo total a ")
                         .append(HORIZONTE_ANIOS)
@@ -144,17 +157,18 @@ public class GraficadorArboles {
                 hay = true;
             }
             
-            cuerpo.append("<h4>")
+            individuales.append("<details class=\"detalle-habitacion\">\n")
+                    .append("<summary>")
                     .append(esc(r.getHabitacion().getNombre()))
-                    .append(" &mdash; exceso de ")
+                    .append(" &mdash; exceso ")
                     .append(String.format("%.1f", plan.getExcesoDb()))
                     .append(" dB, ")
                     .append(plan.cantidad())
-                    .append(" soluciones candidatas, ")
+                    .append(" candidatas, ")
                     .append(plan.cantidadVerificadas())
-                    .append(" verificadas</h4>\n");
+                    .append(" verificadas</summary>\n");
 
-            cuerpo.append("<div class=\"arbol\">")
+            individuales.append("<div class=\"arbol\">")
                     .append(dibujar(plan.aNodoVisual(), ANCHO_RN))
                     .append("</div>\n");
 
@@ -164,7 +178,7 @@ public class GraficadorArboles {
 
             if (suficiente != null) {
 
-                cuerpo.append("<p class=\"nota\">")
+                individuales.append("<p class=\"nota\">")
                         .append("<strong>Solución verificada "
                                 + "que cubre el exceso:</strong> ")
                         .append(esc(suficiente.getDescripcion()))
@@ -175,16 +189,100 @@ public class GraficadorArboles {
 
             } else {
 
-                cuerpo.append("<p class=\"nota\">")
+                individuales.append("<p class=\"nota\">")
                         .append("Ninguna solución verificada "
                                 + "cubre el exceso por sí sola.")
                         .append("</p>\n");
             }
+
+            individuales.append("</details>\n");
         }
-        if (!hay) {
-            cuerpo.append("<p class=\"nota\">Todas las habitaciones son habitables o tolerables: "
-                    + "no hay árboles de soluciones.</p>\n");
+
+        // ==========================================
+        // ÁRBOL ROJO-NEGRO GLOBAL
+        // ==========================================
+
+        cuerpo.append(
+                "<h3>Árbol rojo-negro global: ranking de facilidad</h3>\n");
+        cuerpo.append("<p class=\"leyenda\">")
+                .append(chip("#c62828", "Nodo rojo"))
+                .append(chip("#161616", "Nodo negro / NIL"))
+                .append("<span class=\"nota\">"
+                        + "Cada nodo representa una habitación NO HABITABLE. "
+                        + "El árbol se ordena por el costo total de su "
+                        + "mejor solución verificada que cubra el exceso. "
+                        + "Los empates se resuelven por ID. "
+                        + "Las habitaciones sin solución suficiente "
+                        + "verificada quedan al final. "
+                        + "El mínimo representa la habitación más fácil "
+                        + "económicamente, no necesariamente la primera "
+                        + "intervención recomendada."
+                        + "</span></p>\n");
+
+        if (clasificador.cantidad() == 0) {
+
+            cuerpo.append(
+                    "<p class=\"nota\">No hay habitaciones "
+                            + "NO HABITABLES en este escenario.</p>\n");
+
+        } else {
+
+            // Dibujar el árbol rojo-negro global.
+            cuerpo.append("<div class=\"arbol\">")
+                    .append(dibujar(
+                            clasificador.aNodoVisual(), ANCHO_RN))
+                    .append("</div>\n");
+
+            // Mostrar el recorrido inorden como ranking.
+            cuerpo.append("<h4>Ranking de facilidad económica</h4>\n");
+            cuerpo.append("<ol>\n");
+
+            for (ClasificadorDificultad.Entrada entrada
+                    : clasificador.ranking()) {
+
+                cuerpo.append("<li><strong>")
+                        .append(esc(entrada.getNombreHabitacion()))
+                        .append("</strong> (ID ")
+                        .append(esc(entrada.getHabitacionId()))
+                        .append(") &mdash; exceso ")
+                        .append(String.format(
+                                "%.1f", entrada.getExcesoDb()))
+                        .append(" dB: ");
+
+                if (entrada.requiereCombinar()) {
+
+                    if (entrada.tieneVerificadas()) {
+                        cuerpo.append(
+                                "Requiere combinar: ninguna solución "
+                                        + "verificada cubre el exceso.");
+                    } else {
+                        cuerpo.append(
+                                "Requiere combinar o verificar: "
+                                        + "no hay soluciones verificadas.");
+                    }
+
+                } else {
+
+                    cuerpo.append("Costo total ")
+                            .append(String.format(
+                                    "%.2f", entrada.getCostoTotal()))
+                            .append(" &mdash; solución suficiente "
+                                    + "verificada: ")
+                            .append(esc(entrada
+                                    .getMejorSolucion().getId()));
+                }
+
+                cuerpo.append("</li>\n");
+            }
+
+            cuerpo.append("</ol>\n");
         }
+
+        // Los árboles de soluciones se muestran DESPUÉS del ranking global.
+        if (hay) {
+            cuerpo.append(individuales);
+        }
+
         cuerpo.append("</section>\n");
     }
 
@@ -206,6 +304,9 @@ public class GraficadorArboles {
                 + "border-radius:999px;padding:3px 10px;font-size:13px}\n"
                 + ".chip i{width:12px;height:12px;border-radius:50%;display:inline-block}\n"
                 + ".arbol{overflow-x:auto;background:#fff;border:1px solid #d9dde3;border-radius:12px;padding:8px}\n"
+                + ".detalle-habitacion{margin:10px 0;border:1px solid #d9dde3;border-radius:10px;background:#fff;padding:12px}\n"
+                + ".detalle-habitacion summary{cursor:pointer;font-weight:600;padding:5px 2px}\n"
+                + ".detalle-habitacion[open] summary{margin-bottom:12px}\n"
                 + "svg text{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}\n"
                 + "</style>\n</head>\n<body>\n<h1>" + esc(titulo) + "</h1>\n"
                 + "<p class=\"nota\">Árboles generados por la simulación de habitabilidad acústica.</p>\n"

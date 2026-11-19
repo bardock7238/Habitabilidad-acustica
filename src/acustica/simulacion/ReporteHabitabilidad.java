@@ -1,6 +1,7 @@
 
 package acustica.simulacion;
 
+import acustica.mejora.ClasificadorDificultad;
 import acustica.mejora.GeneradorSoluciones;
 import acustica.mejora.PlanMejora;
 import acustica.mejora.Solucion;
@@ -166,6 +167,10 @@ public final class ReporteHabitabilidad {
                         + "para las habitaciones NO habitables");
 
         boolean hayNoHabitables = false;
+        // Árbol rojo-negro global de facilidad económica.
+        // Se construye únicamente para este horario.
+        ClasificadorDificultad clasificador =
+                new ClasificadorDificultad();
 
         for (ResultadoHabitabilidad r : ordenados) {
 
@@ -195,6 +200,10 @@ public final class ReporteHabitabilidad {
             if (plan == null) {
                 continue;
             }
+
+            // Registrar la habitación en el árbol global.
+                // Usa la mejor solución verificada que cubra el exceso.
+                clasificador.registrar(r, plan);
 
             hayNoHabitables = true;
 
@@ -271,8 +280,70 @@ public final class ReporteHabitabilidad {
             }
         }
 
+
         // ==========================================
-        // 3. RESULTADO GENERAL
+        // 3. ÁRBOL ROJO-NEGRO GLOBAL:
+        //    RANKING DE FACILIDAD ECONÓMICA
+        // ==========================================
+
+        System.out.println(
+                "\n  [Arbol rojo-negro global] Ranking de facilidad");
+
+        System.out.println(
+                "  Ordenado por costo total de la solucion "
+                        + "verificada que cubre el exceso.");
+
+        System.out.println(
+                "  Empates por ID. Sin solucion suficiente "
+                        + "verificada: al final.");
+
+        System.out.println(
+                "  Este ranking no determina el orden "
+                        + "recomendado de intervencion.");
+
+        int puesto = 1;
+
+        for (ClasificadorDificultad.Entrada entrada
+                : clasificador.ranking()) {
+
+            if (entrada.requiereCombinar()) {
+
+                String observacion = entrada.tieneVerificadas()
+                        ? "requiere combinar: ninguna verificada "
+                                + "cubre el exceso"
+                        : "requiere combinar / pendiente de "
+                                + "verificacion";
+
+                System.out.println(String.format(
+                        "  %2d. %-28s | exceso %5.1f dB | %s",
+                        puesto++,
+                        entrada.getNombreHabitacion(),
+                        entrada.getExcesoDb(),
+                        observacion));
+
+            } else {
+
+                System.out.println(String.format(
+                        "  %2d. %-28s | exceso %5.1f dB "
+                                + "| costo total %.2f "
+                                + "| solucion %s",
+                        puesto++,
+                        entrada.getNombreHabitacion(),
+                        entrada.getExcesoDb(),
+                        entrada.getCostoTotal(),
+                        entrada.getMejorSolucion().getId()));
+            }
+        }
+
+        System.out.println(String.format(
+                "  Habitaciones en el ranking: %d "
+                        + "| arbol valido: %s",
+                clasificador.cantidad(),
+                clasificador.arbolValido() ? "si" : "NO"));
+
+
+        // ==========================================
+        // 4. RESULTADO GENERAL
         // ==========================================
 
         if (!hayNoHabitables) {
@@ -295,7 +366,7 @@ public final class ReporteHabitabilidad {
             case HABITABLE:
                 return "[OK] HABITABLE";
 
-            case TOLERABLE:
+            case TOLERABLE:     
                 return "[~]  TOLERABLE";
 
             case NO_HABITABLE:
