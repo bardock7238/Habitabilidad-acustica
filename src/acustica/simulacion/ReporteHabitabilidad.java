@@ -33,6 +33,11 @@ public final class ReporteHabitabilidad {
     private static final int HORIZONTE_ANIOS = 10;
     private static final int SOLUCIONES_A_MOSTRAR = 3;
 
+    /** Umbral y rango de ejemplo para mostrar las consultas del índice B+. */
+    private static final double NIVEL_ALTO_DB = 55.0;
+    private static final double RANGO_DESDE_DB = 30.0;
+    private static final double RANGO_HASTA_DB = 55.0;
+
     private ReporteHabitabilidad() {
         // Utilidad estática: no instanciable.
     }
@@ -156,6 +161,63 @@ public final class ReporteHabitabilidad {
 
             System.out.println(
                     "  Piso mas critico: piso " + pisoCritico);
+        }
+
+        // ==========================================
+        // 1c. ÁRBOL B+ POR PISO Y NIVEL
+        // ==========================================
+
+        IndicePorPisoYNivel porPisoYNivel =
+                new IndicePorPisoYNivel(resultados);
+
+        System.out.println(
+                "\n  [Arbol B+ por piso y nivel] "
+                        + "Clave (piso, nivel recibido, habitacion)");
+
+        System.out.println(
+                "  El nivel indexado es el recibido por el espacio, "
+                        + "no el del vecino de una actividad de alto impacto.");
+
+        System.out.println(String.format(
+                "  Habitaciones: %d | altura del arbol: %d "
+                        + "| valido: %s",
+                porPisoYNivel.tamano(),
+                porPisoYNivel.altura(),
+                porPisoYNivel.cumpleInvariantes() ? "si" : "NO"));
+
+        System.out.println(String.format(
+                "  Consultas de ejemplo: superan %.1f dB | "
+                        + "rango [%.1f, %.1f] dB",
+                NIVEL_ALTO_DB,
+                RANGO_DESDE_DB,
+                RANGO_HASTA_DB));
+
+        for (int piso : porPisoYNivel.pisos()) {
+
+            List<ResultadoHabitabilidad> delPiso =
+                    porPisoYNivel.habitacionesDePiso(piso);
+
+            System.out.println(String.format(
+                    "  Piso %d (%d habitaciones):",
+                    piso,
+                    delPiso.size()));
+
+            System.out.println(
+                    "      Por nivel: "
+                            + resumenNiveles(delPiso));
+
+            System.out.println(String.format(
+                    "      Superan %.1f dB: %s",
+                    NIVEL_ALTO_DB,
+                    resumenNiveles(porPisoYNivel.queSuperanNivel(
+                            piso, NIVEL_ALTO_DB))));
+
+            System.out.println(String.format(
+                    "      Entre %.1f y %.1f dB: %s",
+                    RANGO_DESDE_DB,
+                    RANGO_HASTA_DB,
+                    resumenNiveles(porPisoYNivel.enRangoDeNiveles(
+                            piso, RANGO_DESDE_DB, RANGO_HASTA_DB))));
         }
 
         // ==========================================
@@ -352,6 +414,35 @@ public final class ReporteHabitabilidad {
                     "  Todas las habitaciones son habitables: "
                             + "no hace falta buscar soluciones.");
         }
+    }
+
+    /**
+     * Lista compacta de habitaciones con su nivel recibido, para las consultas
+     * del índice B+ por piso y nivel.
+     */
+    private static String resumenNiveles(
+            List<ResultadoHabitabilidad> resultados) {
+
+        if (resultados.isEmpty()) {
+            return "ninguna";
+        }
+
+        StringBuilder texto = new StringBuilder();
+
+        for (int i = 0; i < resultados.size(); i++) {
+
+            if (i > 0) {
+                texto.append(", ");
+            }
+
+            ResultadoHabitabilidad r = resultados.get(i);
+
+            texto.append(String.format("%s (%.1f dB)",
+                    r.getHabitacion().getNombre(),
+                    r.getNivelRecibido()));
+        }
+
+        return texto.toString();
     }
 
     /**
