@@ -29,6 +29,12 @@ Habitabilidad-acustica/
     ├── config/                     # CargadorDatos (lee los CSV de datos/)
     ├── Main.java                   # Punto de entrada con un edificio de ejemplo
     └── MainEdificioComunal.java    # Edificio con parqueadero, salón comunal, etc.
+    ├── estructuras/                # Árboles AVL, rojo-negro y B+,
+    │                               # además de NodoVisual
+    ├── mejora/                     # Soluciones de aislamiento,
+    │                               # planes de mejora y reubicación
+    ├── visual/                      # GraficadorArboles: genera
+    │                               # la visualización HTML
 ```
 
 ## Modelo acústico (resumen)
@@ -84,6 +90,20 @@ javac -d out (Get-ChildItem -Recurse -Filter *.java src | ForEach-Object FullNam
 java -cp out acustica.Main
 ```
 
+### Visualización de árboles
+
+El proyecto incluye `GraficadorArboles`, que permite representar gráficamente las estructuras de datos utilizadas en el análisis de habitabilidad acústica.
+
+Después de ejecutar la simulación, si se ha generado el archivo `out/arboles.html`, puede abrirse desde la raíz del proyecto con:
+
+```bash
+xdg-open out/arboles.html
+```
+
+También puede abrirse manualmente desde el explorador de archivos o desde un navegador web.
+
+La visualización permite inspeccionar la organización de los árboles y comprender cómo se ordenan los datos utilizados por el sistema.
+
 ## Verificaciones
 
 ```bash
@@ -93,6 +113,8 @@ java -cp out acustica.normativa.VerificacionNormativa
 java -cp out acustica.simulacion.VerificacionActividades
 java -cp out acustica.estructuras.VerificacionArboles
 java -cp out acustica.simulacion.VerificacionIndicePorPisoYNivel
+java -cp out acustica.normativa.VerificacionResultadoHabitabilidad
+java -cp out acustica.normativa.VerificacionIndicePorPisoYNivel
 ```
 
 Salida esperada:
