@@ -15,6 +15,7 @@ import acustica.simulacion.ReporteHabitabilidad;
 import acustica.simulacion.Simulador;
 import acustica.visual.DatosVistaEdificio;
 import acustica.visual.GraficadorArboles;
+import acustica.visual.PlanoEdificioSVG;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -169,6 +170,19 @@ public class MainEdificioComunal {
             throw new IllegalStateException(
                     "No se pudo guardar la vista 2D", e
             );
+        }
+
+        try {
+        Path planoDia = Paths.get("out", "plano-dia.svg");
+        Path planoNoche = Paths.get("out", "plano-noche.svg");
+
+        PlanoEdificioSVG.guardar(datosVista.getDia(), planoDia);
+        PlanoEdificioSVG.guardar(datosVista.getNoche(), planoNoche);
+
+        System.out.println("Plano diurno: " + planoDia.toAbsolutePath());
+        System.out.println("Plano nocturno: " + planoNoche.toAbsolutePath());
+        } catch (IOException e) {
+        throw new IllegalStateException("No se pudieron guardar los planos SVG", e);
         }
 
 
