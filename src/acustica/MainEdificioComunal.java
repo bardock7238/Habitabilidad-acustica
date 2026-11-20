@@ -13,7 +13,13 @@ import acustica.normativa.Normativa;
 import acustica.normativa.ResultadoHabitabilidad;
 import acustica.simulacion.ReporteHabitabilidad;
 import acustica.simulacion.Simulador;
+import acustica.visual.DatosVistaEdificio;
 import acustica.visual.GraficadorArboles;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 
@@ -139,6 +145,31 @@ public class MainEdificioComunal {
                 resultadosNoche,
                 simulador,
                 "noche");
+
+
+        // Preparar los datos de la vista 2D para dia y noche.
+        DatosVistaEdificio datosVista =
+                new DatosVistaEdificio(resultadosDia, resultadosNoche);
+
+        try {
+            Path archivoJson = Paths.get("out", "vista-edificio.json");
+
+            Files.createDirectories(archivoJson.getParent());
+
+            Files.write(
+                    archivoJson,
+                    datosVista.toJson().getBytes(StandardCharsets.UTF_8)
+            );
+
+            System.out.println(
+                    "Datos de la vista 2D: " + archivoJson.toAbsolutePath()
+            );
+
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "No se pudo guardar la vista 2D", e
+            );
+        }
 
 
         grafico.guardarYAbrir("out/arboles.html");
